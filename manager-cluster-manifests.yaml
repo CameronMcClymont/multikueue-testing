@@ -1,0 +1,106 @@
+---
+# Manager Cluster Configuration for MultiKueue
+# This file contains all the necessary manifests for the manager cluster
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: multikueue-demo
+---
+# ResourceFlavor for CPU resources (Manager)
+apiVersion: kueue.x-k8s.io/v1beta1
+kind: ResourceFlavor
+metadata:
+  name: manager-cpu
+  namespace: kueue-system
+spec: {}
+---
+# ResourceFlavor for Memory resources (Manager)
+apiVersion: kueue.x-k8s.io/v1beta1
+kind: ResourceFlavor
+metadata:
+  name: manager-memory
+  namespace: kueue-system
+spec: {}
+---
+# ClusterQueue for the manager cluster
+# (should have quota matching total worker quotas)
+apiVersion: kueue.x-k8s.io/v1beta1
+kind: ClusterQueue
+metadata:
+  name: manager-cluster-queue
+  namespace: kueue-system
+spec:
+  namespaceSelector: {}  # Match all namespaces
+  resourceGroups:
+    - coveredResources: ["cpu"]
+      flavors:
+        - name: manager-cpu
+          resources:
+            - name: "cpu"
+              # Should match total worker cluster CPU quota
+              nominalQuota: 4
+    - coveredResources: ["memory"]
+      flavors:
+        - name: manager-memory
+          resources:
+            - name: "memory"
+              # Should match total worker cluster memory quota
+              nominalQuota: 8Gi
+  queueingStrategy: BestEffortFIFO
+  preemption:
+    withinClusterQueue: LowerPriority
+    reclaimWithinCohort: Any
+  admissionChecks:
+    - multikueue-admission-check
+---
+# AdmissionCheck for MultiKueue
+apiVersion: kueue.x-k8s.io/v1beta1
+kind: AdmissionCheck
+metadata:
+  name: multikueue-admission-check
+  namespace: kueue-system
+spec:
+  controllerName: kueue.x-k8s.io/multikueue
+  parameters:
+    apiGroup: kueue.x-k8s.io
+    kind: MultiKueueConfig
+    name: multikueue-config
+---
+# MultiKueueConfig
+apiVersion: kueue.x-k8s.io/v1beta1
+kind: MultiKueueConfig
+metadata:
+  name: multikueue-config
+  namespace: kueue-system
+spec:
+  clusters:
+    - worker1
+---
+# MultiKueueCluster for worker1
+apiVersion: kueue.x-k8s.io/v1beta1
+kind: MultiKueueCluster
+metadata:
+  name: worker1
+  namespace: kueue-system
+spec:
+  kubeConfig:
+    locationType: Secret
+    location: worker1-secret
+---
+# LocalQueue for the multikueue-demo namespace
+apiVersion: kueue.x-k8s.io/v1beta1
+kind: LocalQueue
+metadata:
+  name: manager-local-queue
+  namespace: multikueue-demo
+spec:
+  clusterQueue: manager-cluster-queue
+---
+# Default LocalQueue for default namespace
+apiVersion: kueue.x-k8s.io/v1beta1
+kind: LocalQueue
+metadata:
+  name: default-local-queue
+  namespace: default
+spec:
+  clusterQueue: manager-cluster-queue
