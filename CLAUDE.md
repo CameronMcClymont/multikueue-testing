@@ -179,6 +179,7 @@ kubectl config get-contexts
 ```
 
 This ensures:
+
 - Code quality standards are maintained
 - No linting errors are introduced
 - Documentation remains consistent
