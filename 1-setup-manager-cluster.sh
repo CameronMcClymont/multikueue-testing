@@ -15,7 +15,7 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # Configuration
-COLIMA_PROFILE="multikueue"
+COLIMA_PROFILE="multikueue-manager"
 MANAGER_CLUSTER="manager"
 KUEUE_VERSION="v0.13.1"  # Latest as of August 2025
 
@@ -65,12 +65,12 @@ for tool in "${tools[@]}"; do
     fi
 done
 
-# Delete any existing multikueue Colima profile for a clean start
-echo -e "${BLUE}🗑️  Deleting any existing multikueue Colima profile...${NC}"
+# Delete any existing manager Colima profile for a clean start
+echo -e "${BLUE}🗑️  Deleting any existing manager Colima profile...${NC}"
 run_cmd colima delete --profile $COLIMA_PROFILE --force 2>/dev/null || true
-print_status "Existing multikueue Colima profile deleted"
+print_status "Existing manager Colima profile deleted"
 
-# Start Colima with adequate resources
+# Start Colima with adequate resources and network access
 echo -e "${BLUE}🐋 Starting Colima with profile: $COLIMA_PROFILE${NC}"
 run_cmd colima start --profile $COLIMA_PROFILE \
     --cpu 4 \
@@ -86,11 +86,7 @@ print_status "Colima started with profile: $COLIMA_PROFILE"
 echo "Waiting for Colima to be ready..."
 sleep 10
 
-# Create a shared Docker network for k3d clusters
-echo -e "${BLUE}🌐 Creating shared Docker network for clusters...${NC}"
-run_cmd docker network create multikueue-network 2>/dev/null || echo "Network already exists"
-
-# Create manager cluster
+# Create manager cluster (no custom network needed in separate VM setup)
 echo -e "${BLUE}🏗️  Creating manager cluster: $MANAGER_CLUSTER${NC}"
 run_cmd k3d cluster create $MANAGER_CLUSTER \
     --agents 1 \
@@ -99,7 +95,6 @@ run_cmd k3d cluster create $MANAGER_CLUSTER \
     --port "80:80@loadbalancer" \
     --port "443:443@loadbalancer" \
     --k3s-arg "--disable=traefik@server:0" \
-    --network multikueue-network \
     --wait
 
 print_status "Manager cluster '$MANAGER_CLUSTER' created"
@@ -169,11 +164,12 @@ echo -e "${GREEN}🎉 Manager cluster setup completed successfully!${NC}"
 echo ""
 echo "Manager cluster information:"
 echo "- Cluster name: k3d-$MANAGER_CLUSTER"
+echo "- Colima VM profile: $COLIMA_PROFILE"
 echo "- API server: localhost:6443"
 echo "- LoadBalancer ports: 80/443"
 echo ""
 echo "Next steps:"
-echo "1. Run './2-setup-worker-cluster.sh' to create the worker cluster"
+echo "1. Run './2-setup-worker-cluster.sh' to create the worker cluster (separate VM)"
 echo "2. Run './3-configure-manager-multikueue.sh' to configure MultiKueue on manager"
 echo "3. Run './4-configure-worker-multikueue.sh' to configure MultiKueue on worker"
 echo "4. Run './5-test-multikueue.sh' to test the complete setup"

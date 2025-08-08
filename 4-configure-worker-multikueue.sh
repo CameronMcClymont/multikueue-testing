@@ -52,6 +52,9 @@ print_status "Worker cluster is available"
 
 # Step 1: Configure Worker Cluster
 echo -e "${BLUE}🔧 Step 1: Configuring worker cluster...${NC}"
+
+# Switch to worker cluster context (should already be available from previous setup)
+echo "Switching to worker cluster context"
 run_cmd kubectl config use-context k3d-$WORKER_CLUSTER
 
 # Apply worker cluster manifests

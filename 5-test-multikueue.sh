@@ -58,6 +58,9 @@ print_status "Both clusters are available"
 
 # Switch to manager cluster
 echo -e "${BLUE}📝 Submitting job to manager cluster...${NC}"
+
+# Switch to manager cluster context
+echo "Switching to manager cluster context"
 run_cmd kubectl config use-context k3d-$MANAGER_CLUSTER
 
 # Clean up any existing job
@@ -97,6 +100,7 @@ run_cmd kubectl get workloads -n $NAMESPACE 2>/dev/null || echo "No workloads on
 echo ""
 
 # Switch to worker cluster to check for job
+echo "Switching to worker cluster context"
 run_cmd kubectl config use-context k3d-$WORKER_CLUSTER
 
 # Wait for dispatch to worker cluster
@@ -182,6 +186,8 @@ fi
 
 # Switch back to manager cluster
 echo -e "${BLUE}🔄 Final status on manager cluster:${NC}"
+
+echo "Switching back to manager cluster context"
 run_cmd kubectl config use-context k3d-$MANAGER_CLUSTER
 run_cmd kubectl get jobs -n $NAMESPACE
 run_cmd kubectl get workloads -n $NAMESPACE -o wide
@@ -194,6 +200,8 @@ run_cmd kubectl get events -n $NAMESPACE --sort-by='.lastTimestamp'
 # Switch to worker cluster and show events there too
 echo ""
 echo -e "${BLUE}📋 Events in $NAMESPACE namespace (worker cluster):${NC}"
+
+echo "Switching to worker cluster context for events"
 run_cmd kubectl config use-context k3d-$WORKER_CLUSTER
 run_cmd kubectl get events -n $NAMESPACE --sort-by='.lastTimestamp'
 

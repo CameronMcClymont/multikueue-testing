@@ -15,7 +15,7 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # Configuration
-COLIMA_PROFILE="multikueue"
+COLIMA_PROFILE="multikueue-worker"
 WORKER_CLUSTER="worker"
 KUEUE_VERSION="v0.13.1"  # Latest as of August 2025
 
@@ -44,31 +44,47 @@ run_cmd() {
 # Check prerequisites
 echo -e "${BLUE}📋 Checking prerequisites...${NC}"
 
-# Check if Colima is running
-if ! colima status --profile $COLIMA_PROFILE >/dev/null 2>&1; then
-    print_error "Colima profile '$COLIMA_PROFILE' is not running. Please run './1-setup-manager-cluster.sh' first."
+# Check if Homebrew is installed
+if ! command -v brew &> /dev/null; then
+    print_error "Homebrew is not installed. Please install it first: /bin/bash -c \"\$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\""
     exit 1
 fi
-print_status "Colima profile '$COLIMA_PROFILE' is running"
+print_status "Homebrew is installed"
 
-# Check if required tools are available
-tools=("kubectl" "k3d")
+# Install required tools if not available
+tools=("colima" "kubectl" "k3d")
 for tool in "${tools[@]}"; do
     if ! command -v "$tool" &> /dev/null; then
-        print_error "$tool is not installed. Please run './1-setup-manager-cluster.sh' first to install all required tools."
-        exit 1
+        echo "Installing $tool..."
+        run_cmd brew install "$tool"
+        print_status "$tool installed"
+    else
+        print_status "$tool already installed"
     fi
 done
-print_status "All required tools are available"
 
-# Check if Docker network exists
-if ! docker network ls | grep -q "multikueue-network"; then
-    print_error "Docker network 'multikueue-network' not found. Please run './1-setup-manager-cluster.sh' first."
-    exit 1
-fi
-print_status "Shared Docker network exists"
+# Delete any existing worker Colima profile for a clean start
+echo -e "${BLUE}🗑️  Deleting any existing worker Colima profile...${NC}"
+run_cmd colima delete --profile $COLIMA_PROFILE --force 2>/dev/null || true
+print_status "Existing worker Colima profile deleted"
 
-# Create worker cluster
+# Start Colima with adequate resources and network access
+echo -e "${BLUE}🐋 Starting Colima with profile: $COLIMA_PROFILE${NC}"
+run_cmd colima start --profile $COLIMA_PROFILE \
+    --cpu 4 \
+    --memory 8 \
+    --disk 50 \
+    --network-address \
+    --kubernetes=false \
+    --runtime docker
+
+print_status "Colima started with profile: $COLIMA_PROFILE"
+
+# Wait for Colima to be ready
+echo "Waiting for Colima to be ready..."
+sleep 10
+
+# Create worker cluster with external port mapping for cross-VM access
 echo -e "${BLUE}🏗️  Creating worker cluster: $WORKER_CLUSTER${NC}"
 run_cmd k3d cluster create $WORKER_CLUSTER \
     --agents 1 \
@@ -77,7 +93,6 @@ run_cmd k3d cluster create $WORKER_CLUSTER \
     --port "8080:80@loadbalancer" \
     --port "8443:443@loadbalancer" \
     --k3s-arg "--disable=traefik@server:0" \
-    --network multikueue-network \
     --wait
 
 print_status "Worker cluster '$WORKER_CLUSTER' created"
@@ -147,7 +162,9 @@ echo -e "${GREEN}🎉 Worker cluster setup completed successfully!${NC}"
 echo ""
 echo "Worker cluster information:"
 echo "- Cluster name: k3d-$WORKER_CLUSTER"
-echo "- API server: localhost:6444"
+echo "- Colima VM profile: $COLIMA_PROFILE"
+echo "- API server: localhost:6443 (within worker VM)"
+echo "- API server (external): localhost:6444 (accessible from host/other VMs)"
 echo "- LoadBalancer ports: 8080/8443"
 echo ""
 echo "Next steps:"

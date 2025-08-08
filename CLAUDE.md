@@ -11,15 +11,16 @@ v0.13.1.
 
 - **Manager Cluster** (`k3d-manager`): Receives jobs and dispatches them via MultiKueue
 - **Worker Cluster** (`k3d-worker`): Executes the dispatched jobs
-- **Colima Profile**: Dedicated `multikueue` profile for isolation
-- **Networking**: Shared Docker network for cluster communication
+- **Manager VM**: Dedicated `multikueue-manager` Colima profile
+- **Worker VM**: Dedicated `multikueue-worker` Colima profile
+- **Networking**: Separate VMs with port mapping for cross-VM communication
 
 ## Files Structure
 
 ### Core Scripts (numbered for execution order)
 
-- `1-setup-manager-cluster.sh` - Creates Colima profile, manager k3d cluster
-- `2-setup-worker-cluster.sh` - Creates worker k3d cluster, installs Kueue
+- `1-setup-manager-cluster.sh` - Creates manager VM and k3d cluster
+- `2-setup-worker-cluster.sh` - Creates worker VM and k3d cluster
 - `3-configure-manager-multikueue.sh` - Configures MultiKueue on manager cluster
 - `4-configure-worker-multikueue.sh` - Configures MultiKueue on worker cluster
 - `5-test-multikueue.sh` - Automated testing with comprehensive monitoring
@@ -75,15 +76,17 @@ learning purposes.
 
 ### Resource Allocation
 
+- **Manager VM**: 4 CPU, 8GB memory, 50GB disk
+- **Worker VM**: 4 CPU, 8GB memory, 50GB disk  
 - **Manager Cluster**: 4 CPU, 8GB memory (matches worker quotas)
 - **Worker Cluster**: 4 CPU, 8GB memory (actual execution resources)
-- **Colima VM**: 4 CPU, 8GB memory, 50GB disk
 
 ### Networking
 
-- **Manager**: localhost:6443, LoadBalancer ports 80/443
-- **Worker**: localhost:6444, LoadBalancer ports 8080/8443
-- **Shared Network**: `multikueue-network` for inter-cluster communication
+- **Manager VM**: cluster at localhost:6443, LoadBalancer ports 80/443
+- **Worker VM**: cluster at localhost:6443, external port 6444, LoadBalancer 8080/8443
+- **Cross-VM Access**: Manager accesses worker at localhost:6444
+- **Real-world Simulation**: Separate VMs simulate multi-datacenter deployment
 
 ## Development History
 

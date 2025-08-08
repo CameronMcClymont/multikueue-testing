@@ -71,7 +71,8 @@ fi
 if [ "$use_existing_kubeconfig" = false ]; then
     echo -e "${BLUE}🔑 Step 1: Creating MultiKueue service account for worker cluster...${NC}"
     
-    # Switch to worker cluster
+    # Switch to worker cluster context (should already be available from previous setup)
+    echo "Switching to worker cluster context to create service account"
     run_cmd kubectl config use-context k3d-$WORKER_CLUSTER
     
     # Create service account and RBAC
@@ -146,8 +147,10 @@ EOF
     CLUSTER_NAME=$(kubectl config current-context)
     CLUSTER_CA=$(kubectl config view --raw -o jsonpath='{.clusters[?(@.name=="'"$CLUSTER_NAME"'")].cluster.certificate-authority-data}')
     
-    # Use internal k3d network address instead of localhost
-    CLUSTER_SERVER="https://k3d-${WORKER_CLUSTER}-server-0:6443"
+    # For separate VM setup, we'll use the external port mapping
+    # The worker cluster will be accessible via localhost on a different port
+    echo "Using worker cluster via port forwarding (separate VM setup)"
+    CLUSTER_SERVER="https://localhost:6444"
     
     # Get service account token
     SA_TOKEN=$(kubectl get secret multikueue-sa-token -n kueue-system -o jsonpath='{.data.token}' | base64 -d)
@@ -180,6 +183,9 @@ fi
 
 # Step 2: Configure Manager Cluster
 echo -e "${BLUE}🏗️  Step 2: Configuring manager cluster...${NC}"
+
+# Switch to manager cluster context
+echo "Switching to manager cluster context"
 run_cmd kubectl config use-context k3d-$MANAGER_CLUSTER
 
 # Create secret with worker cluster kubeconfig
