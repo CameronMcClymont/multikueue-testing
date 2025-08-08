@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# MultiKueue Configuration Script
-# Configures MultiKueue on both manager and worker clusters
+# MultiKueue Manager Configuration Script
+# Configures MultiKueue resources on the manager cluster
 # Author: Claude Code
 # Date: 2025-08-07
 
@@ -20,8 +20,8 @@ WORKER_CLUSTER="worker"
 WORKER_KUBECONFIG_FILE="worker1.kubeconfig"
 CURRENT_DIR=$(pwd)
 
-echo -e "${BLUE}⚙️  Configuring MultiKueue environment${NC}"
-echo "======================================="
+echo -e "${BLUE}⚙️  Configuring MultiKueue on Manager Cluster${NC}"
+echo "============================================="
 
 # Function to print status
 print_status() {
@@ -42,39 +42,41 @@ run_cmd() {
     "$@"
 }
 
-# Function to wait for resource to be ready
-wait_for_resource() {
-    local resource_type=$1
-    local resource_name=$2
-    local namespace=${3:-"kueue-system"}
+# Check prerequisites
+echo -e "${BLUE}📋 Checking prerequisites...${NC}"
+
+# Check if manager cluster exists
+if ! kubectl config get-contexts | grep -q "k3d-$MANAGER_CLUSTER"; then
+    print_error "Manager cluster 'k3d-$MANAGER_CLUSTER' not found. Please run './1-setup-manager-cluster.sh' first."
+    exit 1
+fi
+
+# Check if worker cluster exists
+if ! kubectl config get-contexts | grep -q "k3d-$WORKER_CLUSTER"; then
+    print_error "Worker cluster 'k3d-$WORKER_CLUSTER' not found. Please run './2-setup-worker-cluster.sh' first."
+    exit 1
+fi
+
+print_status "Both clusters are available"
+
+# Check if worker kubeconfig already exists from previous run
+if [ -f "$WORKER_KUBECONFIG_FILE" ]; then
+    print_warning "Worker kubeconfig '$WORKER_KUBECONFIG_FILE' already exists. Using existing file."
+    use_existing_kubeconfig=true
+else
+    use_existing_kubeconfig=false
+fi
+
+# Step 1: Generate worker cluster kubeconfig if needed
+if [ "$use_existing_kubeconfig" = false ]; then
+    echo -e "${BLUE}🔑 Step 1: Creating MultiKueue service account for worker cluster...${NC}"
     
-    echo "Waiting for $resource_type/$resource_name to be ready in namespace $namespace..."
-    kubectl wait --for=condition=ready --timeout=300s "$resource_type/$resource_name" -n "$namespace" 2>/dev/null || true
-}
-
-# Step 1: Configure Worker Cluster
-echo -e "${BLUE}🔧 Step 1: Configuring worker cluster...${NC}"
-run_cmd kubectl config use-context k3d-$WORKER_CLUSTER
-
-# Apply worker cluster manifests
-echo "Applying worker cluster manifests..."
-run_cmd kubectl apply -f worker-cluster-manifests.yaml
-
-# Verify worker cluster resources are created
-echo "Verifying worker cluster resources..."
-kubectl get clusterqueue/worker-cluster-queue -n kueue-system --no-headers >/dev/null
-kubectl get localqueue/manager-local-queue -n multikueue-demo --no-headers >/dev/null
-kubectl get localqueue/default-local-queue -n default --no-headers >/dev/null
-echo "Resources verified successfully"
-
-print_status "Worker cluster configured successfully"
-
-# Step 2: Create MultiKueue service account and kubeconfig for worker cluster
-echo -e "${BLUE}🔑 Step 2: Creating MultiKueue service account for worker cluster...${NC}"
-
-# Create service account and RBAC
-echo -e "${YELLOW}$ kubectl apply -f - <<EOF${NC}"
-cat <<EOF | kubectl apply -f -
+    # Switch to worker cluster
+    run_cmd kubectl config use-context k3d-$WORKER_CLUSTER
+    
+    # Create service account and RBAC
+    echo -e "${YELLOW}$ kubectl apply -f - <<EOF${NC}"
+    cat <<EOF | kubectl apply -f -
 ---
 apiVersion: v1
 kind: ServiceAccount
@@ -102,7 +104,6 @@ rules:
 - apiGroups: [""]
   resources: ["pods"]
   verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
-# Only basic permissions needed for Jobs and core Kubernetes resources
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
@@ -117,14 +118,14 @@ subjects:
   name: multikueue-sa
   namespace: kueue-system
 EOF
-
-# Verify service account was created
-kubectl get serviceaccount/multikueue-sa -n kueue-system --no-headers >/dev/null
-
-# Get the service account token
-echo "Creating service account token..."
-echo -e "${YELLOW}$ kubectl apply -f - <<EOF${NC}"
-kubectl apply -f - <<EOF
+    
+    # Verify service account was created
+    kubectl get serviceaccount/multikueue-sa -n kueue-system --no-headers >/dev/null
+    
+    # Get the service account token
+    echo "Creating service account token..."
+    echo -e "${YELLOW}$ kubectl apply -f - <<EOF${NC}"
+    kubectl apply -f - <<EOF
 apiVersion: v1
 kind: Secret
 metadata:
@@ -134,26 +135,25 @@ metadata:
     kubernetes.io/service-account.name: multikueue-sa
 type: kubernetes.io/service-account-token
 EOF
-
-# Wait for token to be created
-sleep 5
-
-# Generate kubeconfig for worker cluster
-echo "Generating kubeconfig for worker cluster..."
-
-# Get cluster info
-CLUSTER_NAME=$(kubectl config current-context)
-CLUSTER_CA=$(kubectl config view --raw -o jsonpath='{.clusters[?(@.name=="'"$CLUSTER_NAME"'")].cluster.certificate-authority-data}')
-
-# Use internal k3d network address instead of localhost
-# The worker cluster is accessible from manager cluster via the k3d internal network
-CLUSTER_SERVER="https://k3d-${WORKER_CLUSTER}-server-0:6443"
-
-# Get service account token
-SA_TOKEN=$(kubectl get secret multikueue-sa-token -n kueue-system -o jsonpath='{.data.token}' | base64 -d)
-
-# Create kubeconfig file
-cat > $WORKER_KUBECONFIG_FILE <<EOF
+    
+    # Wait for token to be created
+    sleep 5
+    
+    # Generate kubeconfig for worker cluster
+    echo "Generating kubeconfig for worker cluster..."
+    
+    # Get cluster info
+    CLUSTER_NAME=$(kubectl config current-context)
+    CLUSTER_CA=$(kubectl config view --raw -o jsonpath='{.clusters[?(@.name=="'"$CLUSTER_NAME"'")].cluster.certificate-authority-data}')
+    
+    # Use internal k3d network address instead of localhost
+    CLUSTER_SERVER="https://k3d-${WORKER_CLUSTER}-server-0:6443"
+    
+    # Get service account token
+    SA_TOKEN=$(kubectl get secret multikueue-sa-token -n kueue-system -o jsonpath='{.data.token}' | base64 -d)
+    
+    # Create kubeconfig file
+    cat > $WORKER_KUBECONFIG_FILE <<EOF
 apiVersion: v1
 kind: Config
 clusters:
@@ -172,11 +172,14 @@ users:
   user:
     token: $SA_TOKEN
 EOF
+    
+    print_status "Worker cluster kubeconfig created: $WORKER_KUBECONFIG_FILE"
+else
+    print_status "Using existing worker kubeconfig: $WORKER_KUBECONFIG_FILE"
+fi
 
-print_status "Worker cluster kubeconfig created: $WORKER_KUBECONFIG_FILE"
-
-# Step 3: Configure Manager Cluster
-echo -e "${BLUE}🏗️  Step 3: Configuring manager cluster...${NC}"
+# Step 2: Configure Manager Cluster
+echo -e "${BLUE}🏗️  Step 2: Configuring manager cluster...${NC}"
 run_cmd kubectl config use-context k3d-$MANAGER_CLUSTER
 
 # Create secret with worker cluster kubeconfig
@@ -206,8 +209,8 @@ echo "Resources verified successfully"
 
 print_status "Manager cluster configured successfully"
 
-# Step 4: Verify MultiKueue setup
-echo -e "${BLUE}✅ Step 4: Verifying MultiKueue setup...${NC}"
+# Step 3: Verify MultiKueue setup
+echo -e "${BLUE}✅ Step 3: Verifying MultiKueue setup...${NC}"
 
 echo "Checking AdmissionCheck status..."
 run_cmd kubectl get admissioncheck multikueue-admission-check -n kueue-system -o yaml
@@ -221,19 +224,14 @@ run_cmd kubectl get multikueuecluster worker1 -n kueue-system -o yaml
 echo "Checking ClusterQueue status..."
 run_cmd kubectl get clusterqueue manager-cluster-queue -n kueue-system -o yaml
 
-print_status "MultiKueue configuration completed!"
+print_status "MultiKueue configuration on manager cluster completed!"
 
 echo ""
-echo -e "${GREEN}🎉 MultiKueue is now ready for use!${NC}"
+echo -e "${GREEN}🎉 Manager cluster MultiKueue configuration is ready!${NC}"
 echo ""
-echo "To test the setup:"
-echo -e "${BLUE}Recommended: Use the automated test helper${NC}"
-echo "  ./3-test-multikueue.sh"
-echo ""
-echo "Or test manually:"
-echo "1. Switch to manager cluster: kubectl config use-context k3d-$MANAGER_CLUSTER"
-echo "2. Run: kubectl apply -f sample-job.yaml"
-echo "3. Monitor the job: kubectl get jobs -n multikueue-demo --watch"
+echo "Next steps:"
+echo "1. Run './4-configure-worker-multikueue.sh' to configure worker cluster"
+echo "2. Run './5-test-multikueue.sh' to test the complete setup"
 echo ""
 echo "To check the status of MultiKueue components:"
 echo "kubectl get multikueuecluster,multikueueconfig,admissioncheck -n kueue-system"

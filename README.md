@@ -357,7 +357,7 @@ To add additional worker clusters:
 2. Generate kubeconfig for worker2:
 
    ```bash
-   # Follow the same process as in 2-configure-multikueue.sh
+   # Follow the same process as in 3-configure-manager-multikueue.sh
    ```
 
 3. Add to MultiKueueConfig:

@@ -18,10 +18,12 @@ v0.13.1.
 
 ### Core Scripts (numbered for execution order)
 
-- `1-setup-clusters.sh` - Creates Colima profile, k3d clusters, installs Kueue
-- `2-configure-multikueue.sh` - Configures MultiKueue components and RBAC
-- `3-test-multikueue.sh` - Automated testing with comprehensive monitoring
-- `4-cleanup.sh` - Complete environment teardown
+- `1-setup-manager-cluster.sh` - Creates Colima profile, manager k3d cluster
+- `2-setup-worker-cluster.sh` - Creates worker k3d cluster, installs Kueue
+- `3-configure-manager-multikueue.sh` - Configures MultiKueue on manager cluster
+- `4-configure-worker-multikueue.sh` - Configures MultiKueue on worker cluster
+- `5-test-multikueue.sh` - Automated testing with comprehensive monitoring
+- `6-cleanup.sh` - Complete environment teardown
 
 ### Configuration Files
 
@@ -106,16 +108,18 @@ learning purposes.
 ### Quick Start
 
 ```bash
-./1-setup-clusters.sh      # ~5-10 minutes
-./2-configure-multikueue.sh # ~2-3 minutes  
-./3-test-multikueue.sh      # ~2-3 minutes
+./1-setup-manager-cluster.sh    # ~3-5 minutes
+./2-setup-worker-cluster.sh     # ~2-3 minutes
+./3-configure-manager-multikueue.sh  # ~1-2 minutes
+./4-configure-worker-multikueue.sh   # ~1 minute
+./5-test-multikueue.sh          # ~2-3 minutes
 ```
 
 ### Testing Commands
 
 ```bash
 # Run automated test (recommended)
-./3-test-multikueue.sh
+./5-test-multikueue.sh
 
 # Manual testing
 kubectl config use-context k3d-manager
@@ -126,7 +130,7 @@ kubectl get jobs -n multikueue-demo --watch
 ### Cleanup
 
 ```bash
-./4-cleanup.sh  # Complete teardown
+./6-cleanup.sh  # Complete teardown
 ```
 
 ## Troubleshooting

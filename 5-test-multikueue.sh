@@ -45,12 +45,12 @@ run_cmd() {
 # Check if clusters are available
 echo -e "${BLUE}🔍 Checking cluster availability...${NC}"
 if ! kubectl config get-contexts | grep -q "k3d-$MANAGER_CLUSTER"; then
-  print_error "Manager cluster 'k3d-$MANAGER_CLUSTER' not found. Run ./1-setup-clusters.sh first."
+  print_error "Manager cluster 'k3d-$MANAGER_CLUSTER' not found. Run setup scripts first."
   exit 1
 fi
 
 if ! kubectl config get-contexts | grep -q "k3d-$WORKER_CLUSTER"; then
-  print_error "Worker cluster 'k3d-$WORKER_CLUSTER' not found. Run ./1-setup-clusters.sh first."
+  print_error "Worker cluster 'k3d-$WORKER_CLUSTER' not found. Run setup scripts first."
   exit 1
 fi
 

@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# MultiKueue Local Setup Script
-# Sets up two Kubernetes clusters (manager and worker) using Colima and k3d
+# MultiKueue Manager Cluster Setup Script
+# Sets up the manager Kubernetes cluster using Colima and k3d
 # Author: Claude Code
 # Date: 2025-08-07
 
@@ -17,11 +17,10 @@ NC='\033[0m' # No Color
 # Configuration
 COLIMA_PROFILE="multikueue"
 MANAGER_CLUSTER="manager"
-WORKER_CLUSTER="worker"
 KUEUE_VERSION="v0.13.1"  # Latest as of August 2025
 
-echo -e "${BLUE}🚀 Setting up MultiKueue local environment${NC}"
-echo "=================================="
+echo -e "${BLUE}🚀 Setting up MultiKueue Manager Cluster${NC}"
+echo "========================================"
 
 # Function to print status
 print_status() {
@@ -105,58 +104,28 @@ run_cmd k3d cluster create $MANAGER_CLUSTER \
 
 print_status "Manager cluster '$MANAGER_CLUSTER' created"
 
-# Create worker cluster
-echo -e "${BLUE}🏗️  Creating worker cluster: $WORKER_CLUSTER${NC}"
-run_cmd k3d cluster create $WORKER_CLUSTER \
-    --agents 1 \
-    --servers 1 \
-    --port "6444:6443@server:0" \
-    --port "8080:80@loadbalancer" \
-    --port "8443:443@loadbalancer" \
-    --k3s-arg "--disable=traefik@server:0" \
-    --network multikueue-network \
-    --wait
-
-print_status "Worker cluster '$WORKER_CLUSTER' created"
-
-# Verify clusters
-echo -e "${BLUE}🔍 Verifying cluster contexts...${NC}"
-run_cmd kubectl config get-contexts
-
-# Switch to manager cluster and install Kueue
-echo -e "${BLUE}📦 Installing Kueue on manager cluster...${NC}"
+# Verify cluster
+echo -e "${BLUE}🔍 Verifying manager cluster context...${NC}"
 run_cmd kubectl config use-context k3d-$MANAGER_CLUSTER
+run_cmd kubectl get nodes
+
+# Install Kueue on manager cluster
+echo -e "${BLUE}📦 Installing Kueue on manager cluster...${NC}"
 run_cmd kubectl apply --server-side -f https://github.com/kubernetes-sigs/kueue/releases/download/$KUEUE_VERSION/manifests.yaml
 
 print_status "Kueue installed on manager cluster"
 
-# Switch to worker cluster and install Kueue
-echo -e "${BLUE}📦 Installing Kueue on worker cluster...${NC}"
-run_cmd kubectl config use-context k3d-$WORKER_CLUSTER
-run_cmd kubectl apply --server-side -f https://github.com/kubernetes-sigs/kueue/releases/download/$KUEUE_VERSION/manifests.yaml
-
-print_status "Kueue installed on worker cluster"
-
-# Wait for Kueue to be ready on both clusters
+# Wait for Kueue to be ready
 echo -e "${BLUE}⏳ Waiting for Kueue components to be ready...${NC}"
-
-# Manager cluster
-run_cmd kubectl config use-context k3d-$MANAGER_CLUSTER
 echo "Waiting for Kueue components in manager cluster..."
 run_cmd kubectl wait --for=condition=available --timeout=300s deployment/kueue-controller-manager -n kueue-system
 
-# Worker cluster
-run_cmd kubectl config use-context k3d-$WORKER_CLUSTER
-echo "Waiting for Kueue components in worker cluster..."
-run_cmd kubectl wait --for=condition=available --timeout=300s deployment/kueue-controller-manager -n kueue-system
-
-print_status "Kueue components are ready on both clusters"
+print_status "Kueue components are ready on manager cluster"
 
 # Configure Kueue to work with minimal workload types only
 echo -e "${BLUE}⚙️  Configuring Kueue for minimal workload types...${NC}"
 
 # Create ConfigMap to disable external integrations validation
-run_cmd kubectl config use-context k3d-$MANAGER_CLUSTER
 echo -e "${YELLOW}$ kubectl create configmap kueue-manager-config -n kueue-system --from-literal=controller_manager_config.yaml='<YAML_CONFIG>' --dry-run=client -o yaml | kubectl apply -f -${NC}"
 kubectl create configmap kueue-manager-config -n kueue-system --from-literal=controller_manager_config.yaml='
 apiVersion: config.kueue.x-k8s.io/v1beta1
@@ -190,61 +159,25 @@ integrations:
         values: [ kube-system, kueue-system ]
 ' --dry-run=client -o yaml | kubectl apply -f -
 
-# Do the same for worker cluster
-run_cmd kubectl config use-context k3d-$WORKER_CLUSTER
-echo -e "${YELLOW}$ kubectl create configmap kueue-manager-config -n kueue-system --from-literal=controller_manager_config.yaml='<YAML_CONFIG>' --dry-run=client -o yaml | kubectl apply -f -${NC}"
-kubectl create configmap kueue-manager-config -n kueue-system --from-literal=controller_manager_config.yaml='
-apiVersion: config.kueue.x-k8s.io/v1beta1
-kind: Configuration
-namespace: kueue-system
-health:
-  healthProbeBindAddress: :8081
-metrics:
-  bindAddress: :8080
-webhook:
-  port: 9443
-leaderElection:
-  leaderElect: true
-  resourceName: c1f6bfd2.kueue.x-k8s.io
-controller:
-  groupKindConcurrency:
-    Job.batch: 5
-    Pod.v1: 5
-    Workload.kueue.x-k8s.io: 5
-    LocalQueue.kueue.x-k8s.io: 1
-    ClusterQueue.kueue.x-k8s.io: 1
-    ResourceFlavor.kueue.x-k8s.io: 1
-integrations:
-  frameworks:
-    - "batch/job"
-  podOptions:
-    namespaceSelector:
-      matchExpressions:
-      - key: kubernetes.io/metadata.name
-        operator: NotIn
-        values: [ kube-system, kueue-system ]
-' --dry-run=client -o yaml | kubectl apply -f -
-
-# Restart Kueue controllers to pick up the new config
-run_cmd kubectl config use-context k3d-$MANAGER_CLUSTER
-run_cmd kubectl rollout restart deployment/kueue-controller-manager -n kueue-system
-
-run_cmd kubectl config use-context k3d-$WORKER_CLUSTER
+# Restart Kueue controller to pick up the new config
 run_cmd kubectl rollout restart deployment/kueue-controller-manager -n kueue-system
 
 print_status "Kueue configured for minimal workload types (Jobs only)"
 
 echo ""
-echo -e "${GREEN}🎉 Setup completed successfully!${NC}"
+echo -e "${GREEN}🎉 Manager cluster setup completed successfully!${NC}"
+echo ""
+echo "Manager cluster information:"
+echo "- Cluster name: k3d-$MANAGER_CLUSTER"
+echo "- API server: localhost:6443"
+echo "- LoadBalancer ports: 80/443"
 echo ""
 echo "Next steps:"
-echo "1. Run './2-configure-multikueue.sh' to configure MultiKueue"
-echo "2. Test the setup with sample jobs"
+echo "1. Run './2-setup-worker-cluster.sh' to create the worker cluster"
+echo "2. Run './3-configure-manager-multikueue.sh' to configure MultiKueue on manager"
+echo "3. Run './4-configure-worker-multikueue.sh' to configure MultiKueue on worker"
+echo "4. Run './5-test-multikueue.sh' to test the complete setup"
 echo ""
-echo "Cluster information:"
-echo "- Manager cluster: k3d-$MANAGER_CLUSTER (port 6443)"
-echo "- Worker cluster: k3d-$WORKER_CLUSTER (port 6444)"
-echo ""
-echo "To switch between clusters:"
+echo "To check the cluster:"
 echo "- kubectl config use-context k3d-$MANAGER_CLUSTER"
-echo "- kubectl config use-context k3d-$WORKER_CLUSTER"
+echo "- kubectl get pods -n kueue-system"

@@ -63,10 +63,12 @@ check_gitignore() {
 check_file_structure() {
     echo -e "${BLUE}Checking file structure...${NC}"
     local required_files=(
-        "1-setup-clusters.sh"
-        "2-configure-multikueue.sh"
-        "3-test-multikueue.sh"
-        "4-cleanup.sh"
+        "1-setup-manager-cluster.sh"
+        "2-setup-worker-cluster.sh"
+        "3-configure-manager-multikueue.sh"
+        "4-configure-worker-multikueue.sh"
+        "5-test-multikueue.sh"
+        "6-cleanup.sh"
         "manager-cluster-manifests.yaml"
         "worker-cluster-manifests.yaml"
         "sample-job.yaml"
@@ -93,7 +95,7 @@ check_file_structure() {
 
 check_script_permissions() {
     echo -e "${BLUE}Checking script permissions...${NC}"
-    local scripts=("1-setup-clusters.sh" "2-configure-multikueue.sh" "3-test-multikueue.sh" "4-cleanup.sh")
+    local scripts=("1-setup-manager-cluster.sh" "2-setup-worker-cluster.sh" "3-configure-manager-multikueue.sh" "4-configure-worker-multikueue.sh" "5-test-multikueue.sh" "6-cleanup.sh")
     local non_executable=()
 
     for script in "${scripts[@]}"; do
@@ -214,7 +216,7 @@ check_script_consistency() {
     local issues=()
 
     # Check for run_cmd function usage
-    for script in 1-setup-clusters.sh 2-configure-multikueue.sh 3-test-multikueue.sh 4-cleanup.sh; do
+    for script in 1-setup-manager-cluster.sh 2-setup-worker-cluster.sh 3-configure-manager-multikueue.sh 4-configure-worker-multikueue.sh 5-test-multikueue.sh 6-cleanup.sh; do
         if [[ -f "$script" ]]; then
             if ! grep -q "run_cmd()" "$script"; then
                 issues+=("$script missing run_cmd() function")
@@ -226,12 +228,12 @@ check_script_consistency() {
     done
 
     # Check for consistent variable naming
-    if [[ -f "1-setup-clusters.sh" && -f "2-configure-multikueue.sh" ]]; then
-        if ! grep -q "MANAGER_CLUSTER=" 1-setup-clusters.sh; then
-            issues+=("1-setup-clusters.sh missing MANAGER_CLUSTER variable")
+    if [[ -f "1-setup-manager-cluster.sh" && -f "3-configure-manager-multikueue.sh" ]]; then
+        if ! grep -q "MANAGER_CLUSTER=" 1-setup-manager-cluster.sh; then
+            issues+=("1-setup-manager-cluster.sh missing MANAGER_CLUSTER variable")
         fi
-        if ! grep -q "WORKER_CLUSTER=" 1-setup-clusters.sh; then
-            issues+=("1-setup-clusters.sh missing WORKER_CLUSTER variable")
+        if ! grep -q "WORKER_CLUSTER=" 2-setup-worker-cluster.sh; then
+            issues+=("2-setup-worker-cluster.sh missing WORKER_CLUSTER variable")
         fi
     fi
 
