@@ -141,9 +141,21 @@ fi
 
 # Clean up kubectl contexts (optional)
 echo -e "${BLUE}🔧 Cleaning up kubectl contexts...${NC}"
-run_cmd kubectl config delete-context k3d-$MANAGER_CLUSTER 2>/dev/null || print_warning "Manager cluster context not found in kubeconfig"
-run_cmd kubectl config delete-context k3d-$WORKER_CLUSTER 2>/dev/null || print_warning "Worker cluster context not found in kubeconfig"
 
+# Check if contexts exist before trying to delete them
+if kubectl config get-contexts k3d-$MANAGER_CLUSTER >/dev/null 2>&1; then
+  run_cmd kubectl config delete-context k3d-$MANAGER_CLUSTER
+else
+  echo -e "${YELLOW}Manager cluster context 'k3d-$MANAGER_CLUSTER' not found (likely already cleaned up)${NC}"
+fi
+
+if kubectl config get-contexts k3d-$WORKER_CLUSTER >/dev/null 2>&1; then
+  run_cmd kubectl config delete-context k3d-$WORKER_CLUSTER
+else
+  echo -e "${YELLOW}Worker cluster context 'k3d-$WORKER_CLUSTER' not found (likely already cleaned up)${NC}"
+fi
+
+# Clean up clusters and users (these may have been auto-cleaned by k3d)
 run_cmd kubectl config delete-cluster k3d-$MANAGER_CLUSTER 2>/dev/null || true
 run_cmd kubectl config delete-cluster k3d-$WORKER_CLUSTER 2>/dev/null || true
 
