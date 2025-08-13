@@ -192,7 +192,7 @@ EOF
     # Method 2: Try common Docker/VM network gateways
     if [ -z "$HOST_IP" ]; then
         echo "Trying common container network gateways..."
-        for candidate_ip in "host.docker.internal" "192.168.65.1" "192.168.106.1" "172.17.0.1"; do
+        for candidate_ip in "host.docker.internal" "172.17.0.1"; do
             if curl -k --connect-timeout 2 "https://$candidate_ip:6444/api" >/dev/null 2>&1; then
                 HOST_IP="$candidate_ip"
                 echo "Found working host IP: $HOST_IP"
