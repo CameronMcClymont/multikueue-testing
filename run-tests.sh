@@ -18,30 +18,48 @@ NC='\033[0m' # No Color
 check_shellcheck() {
     echo -e "${BLUE}Running shellcheck...${NC}"
     if command -v shellcheck >/dev/null 2>&1; then
-        shellcheck ./*.sh
-        echo -e "${GREEN}✅ shellcheck passed${NC}"
+        if shellcheck ./*.sh; then
+            echo -e "${GREEN}✅ shellcheck passed${NC}"
+            return 0
+        else
+            echo -e "${RED}❌ shellcheck failed${NC}"
+            return 1
+        fi
     else
         echo -e "${YELLOW}⚠️  shellcheck not found, skipping${NC}"
+        return 0
     fi
 }
 
 check_yamllint() {
     echo -e "${BLUE}Running yamllint...${NC}"
     if command -v yamllint >/dev/null 2>&1; then
-        yamllint ./*.yaml
-        echo -e "${GREEN}✅ yamllint passed${NC}"
+        if yamllint ./*.yaml; then
+            echo -e "${GREEN}✅ yamllint passed${NC}"
+            return 0
+        else
+            echo -e "${RED}❌ yamllint failed${NC}"
+            return 1
+        fi
     else
         echo -e "${YELLOW}⚠️  yamllint not found, skipping${NC}"
+        return 0
     fi
 }
 
 check_markdownlint() {
     echo -e "${BLUE}Running markdownlint-cli2...${NC}"
     if command -v markdownlint-cli2 >/dev/null 2>&1; then
-        markdownlint-cli2 ./*.md
-        echo -e "${GREEN}✅ markdownlint-cli2 passed${NC}"
+        if markdownlint-cli2 ./*.md; then
+            echo -e "${GREEN}✅ markdownlint-cli2 passed${NC}"
+            return 0
+        else
+            echo -e "${RED}❌ markdownlint-cli2 failed${NC}"
+            return 1
+        fi
     else
         echo -e "${YELLOW}⚠️  markdownlint-cli2 not found, skipping${NC}"
+        return 0
     fi
 }
 
@@ -63,14 +81,21 @@ check_gitignore() {
 check_file_structure() {
     echo -e "${BLUE}Checking file structure...${NC}"
     local required_files=(
-        "1-setup-manager-cluster.sh"
-        "2-setup-worker-cluster.sh"
-        "3-configure-manager-multikueue.sh"
-        "4-configure-worker-multikueue.sh"
-        "5-test-multikueue.sh"
-        "6-cleanup.sh"
+        "1a-setup-manager-cluster.sh"
+        "1b-setup-worker-cluster.sh"
+        "1c-setup-remote-cluster.sh"
+        "2a-configure-manager-multikueue.sh"
+        "2c-configure-remote-multikueue.sh"
+        "2b-configure-worker-multikueue.sh"
+        "3a-test-manager-multikueue.sh"
+        "3b-test-worker-multikueue.sh"
+        "3c-test-remote-multikueue.sh"
+        "4a-cleanup-manager.sh"
+        "4b-cleanup-worker.sh"
+        "4c-cleanup-remote.sh"
         "manager-cluster-manifests.yaml"
         "worker-cluster-manifests.yaml"
+        "remote-cluster-manifests.yaml"
         "sample-job.yaml"
         "README.md"
         "CLAUDE.md"
@@ -95,7 +120,7 @@ check_file_structure() {
 
 check_script_permissions() {
     echo -e "${BLUE}Checking script permissions...${NC}"
-    local scripts=("1-setup-manager-cluster.sh" "2-setup-worker-cluster.sh" "3-configure-manager-multikueue.sh" "4-configure-worker-multikueue.sh" "5-test-multikueue.sh" "6-cleanup.sh")
+    local scripts=("1a-setup-manager-cluster.sh" "1b-setup-worker-cluster.sh" "1c-setup-remote-cluster.sh" "2a-configure-manager-multikueue.sh" "2c-configure-remote-multikueue.sh" "2b-configure-worker-multikueue.sh" "3a-test-manager-multikueue.sh" "3b-test-worker-multikueue.sh" "3c-test-remote-multikueue.sh" "4a-cleanup-manager.sh" "4b-cleanup-worker.sh" "4c-cleanup-remote.sh")
     local non_executable=()
 
     for script in "${scripts[@]}"; do
@@ -183,8 +208,8 @@ check_documentation() {
         if ! grep -q "File Structure" README.md; then
             issues+=("README.md missing File Structure section")
         fi
-        if ! grep -q "Troubleshooting" README.md; then
-            issues+=("README.md missing Troubleshooting section")
+        if ! grep -q "Code Quality Checks" README.md; then
+            issues+=("README.md missing Code Quality Checks section")
         fi
     else
         issues+=("README.md not found")
@@ -216,7 +241,7 @@ check_script_consistency() {
     local issues=()
 
     # Check for run_cmd function usage
-    for script in 1-setup-manager-cluster.sh 2-setup-worker-cluster.sh 3-configure-manager-multikueue.sh 4-configure-worker-multikueue.sh 5-test-multikueue.sh 6-cleanup.sh; do
+    for script in 1a-setup-manager-cluster.sh 1b-setup-worker-cluster.sh 1c-setup-remote-cluster.sh 2a-configure-manager-multikueue.sh 2c-configure-remote-multikueue.sh 2b-configure-worker-multikueue.sh 3a-test-manager-multikueue.sh 3b-test-worker-multikueue.sh 3c-test-remote-multikueue.sh 4a-cleanup-manager.sh 4b-cleanup-worker.sh 4c-cleanup-remote.sh; do
         if [[ -f "$script" ]]; then
             if ! grep -q "run_cmd()" "$script"; then
                 issues+=("$script missing run_cmd() function")
@@ -228,12 +253,12 @@ check_script_consistency() {
     done
 
     # Check for consistent variable naming
-    if [[ -f "1-setup-manager-cluster.sh" && -f "3-configure-manager-multikueue.sh" ]]; then
-        if ! grep -q "MANAGER_CLUSTER=" 1-setup-manager-cluster.sh; then
-            issues+=("1-setup-manager-cluster.sh missing MANAGER_CLUSTER variable")
+    if [[ -f "1a-setup-manager-cluster.sh" && -f "2a-configure-manager-multikueue.sh" ]]; then
+        if ! grep -q "MANAGER_CLUSTER=" 1a-setup-manager-cluster.sh; then
+            issues+=("1a-setup-manager-cluster.sh missing MANAGER_CLUSTER variable")
         fi
-        if ! grep -q "WORKER_CLUSTER=" 2-setup-worker-cluster.sh; then
-            issues+=("2-setup-worker-cluster.sh missing WORKER_CLUSTER variable")
+        if ! grep -q "WORKER_CLUSTER=" 1b-setup-worker-cluster.sh; then
+            issues+=("1b-setup-worker-cluster.sh missing WORKER_CLUSTER variable")
         fi
     fi
 

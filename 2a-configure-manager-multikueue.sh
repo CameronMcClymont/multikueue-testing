@@ -12,12 +12,13 @@ RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
+CYAN='\033[0;36m'
 NC='\033[0m' # No Color
 
 # Configuration
 MANAGER_CLUSTER="manager"
 WORKER_CLUSTER="worker"
-WORKER_KUBECONFIG_FILE="worker1.kubeconfig"
+WORKER_KUBECONFIG_FILE="worker.kubeconfig"
 CURRENT_DIR=$(pwd)
 TEMP_DIR="/tmp/multikueue-testing"
 
@@ -35,6 +36,10 @@ print_warning() {
 
 print_error() {
     echo -e "${RED}❌ $1${NC}"
+}
+
+print_info() {
+    echo -e "${CYAN}ℹ️  $1${NC}"
 }
 
 # Function to run commands with visible output
@@ -72,13 +77,13 @@ echo -e "${BLUE}📋 Checking prerequisites...${NC}"
 
 # Check if manager cluster exists
 if ! kubectl config get-contexts | grep -q "k3d-$MANAGER_CLUSTER"; then
-    print_error "Manager cluster 'k3d-$MANAGER_CLUSTER' not found. Please run './1-setup-manager-cluster.sh' first."
+    print_error "Manager cluster 'k3d-$MANAGER_CLUSTER' not found. Please run './1a-setup-manager-cluster.sh' first."
     exit 1
 fi
 
 # Check if worker cluster exists
 if ! kubectl config get-contexts | grep -q "k3d-$WORKER_CLUSTER"; then
-    print_error "Worker cluster 'k3d-$WORKER_CLUSTER' not found. Please run './2-setup-worker-cluster.sh' first."
+    print_error "Worker cluster 'k3d-$WORKER_CLUSTER' not found. Please run './1b-setup-worker-cluster.sh' first."
     exit 1
 fi
 
@@ -271,8 +276,8 @@ run_cmd kubectl config use-context k3d-$MANAGER_CLUSTER
 
 # Create secret with worker cluster kubeconfig
 echo "Creating worker cluster secret in manager cluster..."
-echo -e "${YELLOW}$ kubectl create secret generic worker1-secret -n kueue-system --from-file=kubeconfig=\"$CURRENT_DIR/$WORKER_KUBECONFIG_FILE\" --dry-run=client -o yaml | kubectl apply -f -${NC}"
-kubectl create secret generic worker1-secret -n kueue-system \
+echo -e "${YELLOW}$ kubectl create secret generic worker-secret -n kueue-system --from-file=kubeconfig=\"$CURRENT_DIR/$WORKER_KUBECONFIG_FILE\" --dry-run=client -o yaml | kubectl apply -f -${NC}"
+kubectl create secret generic worker-secret -n kueue-system \
     --from-file=kubeconfig="$CURRENT_DIR/$WORKER_KUBECONFIG_FILE" \
     --dry-run=client -o yaml | kubectl apply -f -
 
@@ -287,11 +292,11 @@ echo "Verifying manager cluster resources..."
 sleep 5
 
 kubectl get clusterqueue/manager-cluster-queue -n kueue-system --no-headers >/dev/null
-kubectl get localqueue/manager-local-queue -n multikueue-demo --no-headers >/dev/null  
+kubectl get localqueue/worker-queue -n multikueue-demo --no-headers >/dev/null  
 kubectl get localqueue/default-local-queue -n default --no-headers >/dev/null
 kubectl get admissioncheck/multikueue-admission-check -n kueue-system --no-headers >/dev/null
 kubectl get multikueueconfig/multikueue-config -n kueue-system --no-headers >/dev/null
-kubectl get multikueuecluster/worker1 -n kueue-system --no-headers >/dev/null
+kubectl get multikueuecluster/worker -n kueue-system --no-headers >/dev/null
 echo "Resources verified successfully"
 
 print_status "Manager cluster configured successfully"
@@ -306,19 +311,23 @@ echo "Checking MultiKueueConfig status..."
 run_cmd kubectl get multikueueconfig multikueue-config -n kueue-system -o yaml
 
 echo "Checking MultiKueueCluster status..."
-run_cmd kubectl get multikueuecluster worker1 -n kueue-system -o yaml
+run_cmd kubectl get multikueuecluster worker -n kueue-system -o yaml
 
 echo "Checking ClusterQueue status..."
 run_cmd kubectl get clusterqueue manager-cluster-queue -n kueue-system -o yaml
 
 print_status "MultiKueue configuration on manager cluster completed!"
 
+echo -e "${BLUE}🌐 Step 4: Remote cluster integration${NC}"
+print_info "Remote cluster support is configured via './2c-configure-remote-multikueue.sh'"
+if kubectl get secret remote-kubeconfig -n kueue-system > /dev/null 2>&1; then
+    print_status "Remote cluster detected and configured"
+else
+    print_info "No remote cluster configured (optional)"
+fi
+
 echo ""
 echo -e "${GREEN}🎉 Manager cluster MultiKueue configuration is ready!${NC}"
-echo ""
-echo "Next steps:"
-echo "1. Run './4-configure-worker-multikueue.sh' to configure worker cluster"
-echo "2. Run './5-test-multikueue.sh' to test the complete setup"
 echo ""
 echo "To check the status of MultiKueue components:"
 echo "kubectl get multikueuecluster,multikueueconfig,admissioncheck -n kueue-system"

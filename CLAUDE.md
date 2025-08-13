@@ -9,22 +9,52 @@ v0.13.1.
 
 ## Architecture
 
-- **Manager Cluster** (`k3d-manager`): Receives jobs and dispatches them via MultiKueue
-- **Worker Cluster** (`k3d-worker`): Executes the dispatched jobs
-- **Manager VM**: Dedicated `multikueue-manager` Colima profile
-- **Worker VM**: Dedicated `multikueue-worker` Colima profile
-- **Networking**: Separate VMs with port mapping for cross-VM communication
+This setup demonstrates a complete MultiKueue multi-cluster architecture using
+two distinct Kubernetes clusters:
+
+### Local Clusters (Primary Setup)
+
+- **Manager Cluster** (`k3d-manager`): Central orchestration cluster that
+  receives job submissions and dispatches them to worker clusters via MultiKueue
+- **Worker Cluster** (`k3d-worker`): Execution cluster that receives
+  dispatched jobs from the manager and runs them
+
+Both clusters run locally on separate virtual machines powered by Colima:
+
+- **Manager VM**: Dedicated `multikueue-manager` Colima profile with isolated networking
+- **Worker VM**: Dedicated `multikueue-worker` Colima profile with cross-VM connectivity
+- **Networking**: Separate VMs with port mapping enable secure cross-VM
+  communication, simulating real multi-datacenter deployments
+
+### Remote Cluster Option (Advanced Setup)
+
+Optionally, users can configure a fully remote Kubernetes cluster for
+distributed execution:
+
+- **Remote Worker Cluster**: Any external Kubernetes cluster accessible via
+  KUBECONFIG
+- **Configuration**: Provide the KUBECONFIG file for the remote cluster
+- **Use Cases**: Cloud providers (EKS, GKE, AKS), on-premises clusters, or
+  shared development environments
+- **Benefits**: Test real-world network latencies and multi-cloud scenarios
+
+This hybrid approach allows testing both local development workflows and
+production-like distributed architectures.
 
 ## Files Structure
 
 ### Core Scripts (numbered for execution order)
 
-- `1-setup-manager-cluster.sh` - Creates manager VM and k3d cluster
-- `2-setup-worker-cluster.sh` - Creates worker VM and k3d cluster
-- `3-configure-manager-multikueue.sh` - Configures MultiKueue on manager cluster
-- `4-configure-worker-multikueue.sh` - Configures MultiKueue on worker cluster
-- `5-test-multikueue.sh` - Automated testing with comprehensive monitoring
-- `6-cleanup.sh` - Complete environment teardown
+- `1a-setup-manager-cluster.sh` - Creates manager VM and k3d cluster
+- `1b-setup-worker-cluster.sh` - Creates worker VM and k3d cluster
+- `1c-setup-remote-cluster.sh` - Remote cluster setup information
+- `2a-configure-manager-multikueue.sh` - Configures MultiKueue on manager cluster
+- `2b-configure-worker-multikueue.sh` - Configures MultiKueue on worker cluster
+- `3a-test-manager-multikueue.sh` - Test manager cluster functionality
+- `3b-test-worker-multikueue.sh` - Test worker cluster functionality
+- `4a-cleanup-manager.sh` - Manager cluster cleanup
+- `4b-cleanup-worker.sh` - Worker cluster cleanup  
+- `4c-cleanup-remote.sh` - Remote cluster cleanup
 
 ### Configuration Files
 
@@ -133,18 +163,21 @@ learning purposes.
 ### Quick Start
 
 ```bash
-./1-setup-manager-cluster.sh    # ~3-5 minutes
-./2-setup-worker-cluster.sh     # ~2-3 minutes
-./3-configure-manager-multikueue.sh  # ~1-2 minutes
-./4-configure-worker-multikueue.sh   # ~1 minute
-./5-test-multikueue.sh          # ~2-3 minutes
+./1a-setup-manager-cluster.sh    # ~3-5 minutes
+./1b-setup-worker-cluster.sh     # ~2-3 minutes
+./1c-setup-remote-cluster.sh     # Information only
+./2a-configure-manager-multikueue.sh  # ~1-2 minutes
+./2b-configure-worker-multikueue.sh   # ~1 minute
+./3a-test-manager-multikueue.sh  # ~1 minute
+./3b-test-worker-multikueue.sh  # ~2-3 minutes
 ```
 
 ### Testing Commands
 
 ```bash
 # Run automated test (recommended)
-./5-test-multikueue.sh
+./3a-test-manager-multikueue.sh
+./3b-test-worker-multikueue.sh
 
 # Manual testing
 kubectl config use-context k3d-manager
@@ -155,7 +188,9 @@ kubectl get jobs -n multikueue-demo --watch
 ### Cleanup
 
 ```bash
-./6-cleanup.sh  # Complete teardown
+./4a-cleanup-manager.sh  # Manager cleanup
+./4b-cleanup-worker.sh   # Worker cleanup
+./4c-cleanup-remote.sh   # Remote cleanup (optional)
 ```
 
 ## Troubleshooting
@@ -178,7 +213,7 @@ kubectl config get-contexts
 
 ### Important Files Generated
 
-- `worker1.kubeconfig` - Worker cluster access (gitignored)
+- `worker.kubeconfig` - Worker cluster access (gitignored)
 - Various kubectl contexts for cluster switching
 
 ## Future Enhancements

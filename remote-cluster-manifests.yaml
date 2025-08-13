@@ -1,6 +1,6 @@
 ---
-# Worker Cluster Configuration for MultiKueue
-# This file contains all the necessary manifests for the worker cluster
+# Remote Cluster Configuration for MultiKueue
+# This file contains all the necessary manifests for the remote cluster
 apiVersion: v1
 kind: Namespace
 metadata:
@@ -22,11 +22,11 @@ metadata:
   namespace: kueue-system
 spec: {}
 ---
-# ClusterQueue for the worker cluster
+# ClusterQueue for the remote cluster
 apiVersion: kueue.x-k8s.io/v1beta1
 kind: ClusterQueue
 metadata:
-  name: worker-cluster-queue
+  name: remote-cluster-queue
   namespace: kueue-system
 spec:
   namespaceSelector: {}  # Match all namespaces
@@ -52,38 +52,16 @@ spec:
 apiVersion: kueue.x-k8s.io/v1beta1
 kind: LocalQueue
 metadata:
-  name: worker-queue
+  name: remote-queue
   namespace: multikueue-demo
 spec:
-  clusterQueue: worker-cluster-queue
+  clusterQueue: remote-cluster-queue
 ---
-# Default LocalQueue for default namespace (must match manager cluster)
+# Default LocalQueue for default namespace
 apiVersion: kueue.x-k8s.io/v1beta1
 kind: LocalQueue
 metadata:
   name: default-local-queue
   namespace: default
 spec:
-  clusterQueue: worker-cluster-queue
----
-# Sample Pod for testing worker cluster functionality
-apiVersion: v1
-kind: Pod
-metadata:
-  name: worker-test-pod
-  namespace: multikueue-demo
-  labels:
-    kueue.x-k8s.io/queue-name: worker-local-queue
-spec:
-  containers:
-    - name: test-container
-      image: busybox:latest
-      command: ["sh", "-c", "echo 'Worker cluster is ready!'; sleep 30"]
-      resources:
-        requests:
-          cpu: 100m
-          memory: 128Mi
-        limits:
-          cpu: 200m
-          memory: 256Mi
-  restartPolicy: Never
+  clusterQueue: remote-cluster-queue

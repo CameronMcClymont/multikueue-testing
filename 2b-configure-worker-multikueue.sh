@@ -44,7 +44,7 @@ echo -e "${BLUE}📋 Checking prerequisites...${NC}"
 
 # Check if worker cluster exists
 if ! kubectl config get-contexts | grep -q "k3d-$WORKER_CLUSTER"; then
-    print_error "Worker cluster 'k3d-$WORKER_CLUSTER' not found. Please run './2-setup-worker-cluster.sh' first."
+    print_error "Worker cluster 'k3d-$WORKER_CLUSTER' not found. Please run './1b-setup-worker-cluster.sh' first."
     exit 1
 fi
 
@@ -66,7 +66,7 @@ echo "Verifying worker cluster resources..."
 sleep 3
 
 kubectl get clusterqueue/worker-cluster-queue -n kueue-system --no-headers >/dev/null
-kubectl get localqueue/manager-local-queue -n multikueue-demo --no-headers >/dev/null
+kubectl get localqueue/worker-queue -n multikueue-demo --no-headers >/dev/null
 kubectl get localqueue/default-local-queue -n default --no-headers >/dev/null
 echo "Resources verified successfully"
 
@@ -80,7 +80,7 @@ if kubectl get serviceaccount multikueue-sa -n kueue-system >/dev/null 2>&1; the
     print_status "MultiKueue service account exists on worker cluster"
 else
     print_warning "MultiKueue service account not found. This should have been created by the manager configuration script."
-    echo "If you encounter connection issues, ensure you ran './3-configure-manager-multikueue.sh' first."
+    echo "If you encounter connection issues, ensure you ran './2a-configure-manager-multikueue.sh' first."
 fi
 
 # Step 3: Verify Configuration
@@ -103,11 +103,8 @@ echo -e "${GREEN}🎉 Worker cluster MultiKueue configuration is ready!${NC}"
 echo ""
 echo "Worker cluster resources:"
 echo "- ClusterQueue: worker-cluster-queue"
-echo "- LocalQueue (multikueue-demo): manager-local-queue"
+echo "- LocalQueue (multikueue-demo): worker-queue"
 echo "- LocalQueue (default): default-local-queue"
-echo ""
-echo "Next steps:"
-echo "1. Run './5-test-multikueue.sh' to test the complete MultiKueue setup"
 echo ""
 echo "To check worker cluster status:"
 echo "- kubectl config use-context k3d-$WORKER_CLUSTER"

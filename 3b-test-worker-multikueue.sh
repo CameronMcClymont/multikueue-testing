@@ -159,8 +159,22 @@ else
   JOB_COUNT=$(kubectl get jobs -n $NAMESPACE --no-headers 2>/dev/null | wc -l || echo "0")
 fi
 
-# Find the pod name
+# Find the pod name - try multiple approaches
+POD_NAME=""
+
+# First, try to find pod using job-name label (works when job exists)
 POD_NAME=$(kubectl get pods -n $NAMESPACE -l job-name=$JOB_NAME --no-headers -o custom-columns=":metadata.name" 2>/dev/null | head -1 || echo "")
+
+# If no pod found with job-name label, try to find the newest busybox pod
+if [ -z "$POD_NAME" ]; then
+  echo "Job-based pod lookup failed, searching for recent busybox pods..."
+  POD_NAME=$(kubectl get pods -n $NAMESPACE --sort-by=.metadata.creationTimestamp -o jsonpath='{range .items[*]}{.metadata.creationTimestamp}{" "}{.metadata.name}{" "}{.spec.containers[0].image}{"\n"}{end}' 2>/dev/null | grep "busybox" | tail -1 | awk '{print $2}' || echo "")
+  
+  if [ -z "$POD_NAME" ]; then
+    echo "No busybox pod found, getting most recent pod..."
+    POD_NAME=$(kubectl get pods -n $NAMESPACE --sort-by=.metadata.creationTimestamp --no-headers -o custom-columns=":metadata.name" 2>/dev/null | tail -1 || echo "")
+  fi
+fi
 
 if [ -n "$POD_NAME" ]; then
   print_status "Job pod found: $POD_NAME"
@@ -186,30 +200,39 @@ if [ -n "$POD_NAME" ]; then
   echo -e "${BLUE}📄 Job output:${NC}"
   echo "========================================"
   
-  # Wait for container to fully start and begin logging
-  echo "Waiting for container to start and begin logging..."
+  # Check if pod is already completed
+  POD_STATUS=$(kubectl get pod "$POD_NAME" -n $NAMESPACE -o jsonpath='{.status.phase}' 2>/dev/null || echo "")
   
-  # Wait for logs to be available (retry approach)
-  for i in {1..10}; do
-    if kubectl logs "$POD_NAME" -n $NAMESPACE --tail=1 >/dev/null 2>&1; then
-      echo "Logs are available, starting capture..."
-      break
-    fi
-    echo "Waiting for logs to be available... attempt $i/10"
-    sleep 2
-  done
-  
-  # Now get the logs with follow to capture real-time output
-  echo -e "${YELLOW}$ kubectl logs $POD_NAME -n $NAMESPACE -f${NC}"
-  kubectl logs "$POD_NAME" -n $NAMESPACE -f &
-  LOG_PID=$!
-  
-  # Wait for the job to complete (30 seconds + 10 second buffer)
-  sleep 40
-  
-  # Stop log following
-  kill $LOG_PID 2>/dev/null || true
-  wait $LOG_PID 2>/dev/null || true
+  if [ "$POD_STATUS" = "Succeeded" ] || [ "$POD_STATUS" = "Failed" ]; then
+    echo "Pod already completed with status: $POD_STATUS"
+    echo "Getting complete logs:"
+    echo -e "${YELLOW}$ kubectl logs $POD_NAME -n $NAMESPACE${NC}"
+    kubectl logs "$POD_NAME" -n $NAMESPACE || echo "No logs available"
+  else
+    echo "Pod is running, following logs in real-time..."
+    
+    # Wait for logs to be available (retry approach)
+    for i in {1..10}; do
+      if kubectl logs "$POD_NAME" -n $NAMESPACE --tail=1 >/dev/null 2>&1; then
+        echo "Logs are available, starting capture..."
+        break
+      fi
+      echo "Waiting for logs to be available... attempt $i/10"
+      sleep 2
+    done
+    
+    # Now get the logs with follow to capture real-time output
+    echo -e "${YELLOW}$ kubectl logs $POD_NAME -n $NAMESPACE -f${NC}"
+    kubectl logs "$POD_NAME" -n $NAMESPACE -f &
+    LOG_PID=$!
+    
+    # Wait for the job to complete (30 seconds + 10 second buffer)  
+    sleep 40
+    
+    # Stop log following
+    kill $LOG_PID 2>/dev/null || true
+    wait $LOG_PID 2>/dev/null || true
+  fi
   
   echo ""
   echo "Job execution monitoring completed"
@@ -259,7 +282,7 @@ run_cmd kubectl config use-context k3d-$WORKER_CLUSTER
 run_cmd kubectl get events -n $NAMESPACE --sort-by='.lastTimestamp'
 
 echo ""
-echo -e "${GREEN}🎉 MultiKueue test complete!${NC}"
+echo -e "${GREEN}🎉 Worker cluster MultiKueue test complete!${NC}"
 echo ""
 echo "Summary:"
 echo "- Job submitted to manager cluster ✅"

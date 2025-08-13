@@ -74,24 +74,24 @@ metadata:
   namespace: kueue-system
 spec:
   clusters:
-    - worker1
+    - worker
 ---
-# MultiKueueCluster for worker1
+# MultiKueueCluster for worker
 apiVersion: kueue.x-k8s.io/v1beta1
 kind: MultiKueueCluster
 metadata:
-  name: worker1
+  name: worker
   namespace: kueue-system
 spec:
   kubeConfig:
     locationType: Secret
-    location: worker1-secret
+    location: worker-secret
 ---
-# LocalQueue for the multikueue-demo namespace
+# LocalQueue for the multikueue-demo namespace (for worker cluster dispatch)
 apiVersion: kueue.x-k8s.io/v1beta1
 kind: LocalQueue
 metadata:
-  name: manager-local-queue
+  name: worker-queue
   namespace: multikueue-demo
 spec:
   clusterQueue: manager-cluster-queue

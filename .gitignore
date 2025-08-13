@@ -1,2 +1,5 @@
-# Generated kubeconfig files
+# Generated kubeconfig files (contain sensitive tokens)
 *.kubeconfig
+
+# Generated job files
+remote-test-job.yaml

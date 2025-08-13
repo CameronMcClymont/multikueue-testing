@@ -1,14 +1,13 @@
 ---
 # Sample Job for testing MultiKueue functionality
-# This job will be submitted to the manager cluster and dispatched to
-# the worker cluster
+# This job can be submitted to different queues for testing various clusters
 apiVersion: batch/v1
 kind: Job
 metadata:
   name: multikueue-test-job
   namespace: multikueue-demo
   labels:
-    kueue.x-k8s.io/queue-name: manager-local-queue
+    kueue.x-k8s.io/queue-name: worker-queue
 spec:
   completions: 1
   parallelism: 1
@@ -24,9 +23,9 @@ spec:
               echo "🚀 MultiKueue Test Job Started!"
               echo "==================================="
               echo ""
-              echo "🎯 Hello from MultiKueue!"
+              echo "🎯 Hello from MultiKueue cluster!"
               echo ""
-              echo "Cluster Info:"
+              echo "Execution Info:"
               echo "- Hostname: $(hostname)"
               echo "- Current time: $(date)"
               echo "- Namespace: $KUBERNETES_NAMESPACE"
