@@ -53,6 +53,20 @@ learning purposes.
 - Comprehensive error messages
 - Graceful cleanup on failures
 
+### Clean Temporary File Management
+
+- All temporary files are organized in `/tmp/multikueue-testing/`
+- Automatic cleanup on script exit (success or failure)
+- No leftover temporary files cluttering the system
+- Trap handlers ensure cleanup even on unexpected exits
+
+### Dynamic Network Detection
+
+- Automatic detection of host IP for cross-VM communication
+- Multiple fallback methods for different container environments
+- Works with Colima, Docker Desktop, and other container runtimes
+- No hardcoded IP addresses that could break portability
+
 ### Production-Ready YAML
 
 - yamllint-compliant manifests
@@ -85,7 +99,11 @@ learning purposes.
 
 - **Manager VM**: cluster at localhost:6443, LoadBalancer ports 80/443
 - **Worker VM**: cluster at localhost:6443, external port 6444, LoadBalancer 8080/8443
-- **Cross-VM Access**: Manager accesses worker at localhost:6444
+- **Cross-VM Access**: Dynamic IP detection finds host IP accessible from
+  manager VM
+- **TLS Configuration**: Uses insecure-skip-tls-verify for cross-VM certificate
+  compatibility
+- **Portability**: Works across different container runtimes and network configurations
 - **Real-world Simulation**: Separate VMs simulate multi-datacenter deployment
 
 ## Development History
@@ -99,6 +117,10 @@ learning purposes.
 4. **Node Scheduling**: Removed node selectors for simplified local development
 5. **YAML Control Characters**: Fixed heredoc and pipe handling in scripts
 6. **Command Visibility**: Implemented educational command echoing
+7. **Cross-VM Networking**: Dynamic host IP detection for container runtime
+   portability
+8. **TLS Certificate Compatibility**: Implemented secure connection handling for
+   multi-VM setups
 
 ### Code Quality Standards
 

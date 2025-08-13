@@ -19,6 +19,7 @@ MANAGER_CLUSTER="manager"
 WORKER_CLUSTER="worker"
 JOB_NAME="multikueue-test-job"
 NAMESPACE="multikueue-demo"
+TEMP_DIR="/tmp/multikueue-testing"
 
 echo -e "${BLUE}🧪 MultiKueue Test Helper${NC}"
 echo "========================="
@@ -41,6 +42,30 @@ run_cmd() {
   echo -e "${YELLOW}$ $*${NC}"
   "$@"
 }
+
+# Function to clean up temporary files
+cleanup_temp() {
+    if [ -d "$TEMP_DIR" ]; then
+        echo "Cleaning up temporary directory: $TEMP_DIR"
+        rm -rf "$TEMP_DIR"
+    fi
+}
+
+# Set up cleanup trap
+trap cleanup_temp EXIT
+
+# Create temporary directory
+setup_temp_dir() {
+    if [ -d "$TEMP_DIR" ]; then
+        echo "Cleaning existing temporary directory: $TEMP_DIR"
+        rm -rf "$TEMP_DIR"
+    fi
+    echo "Creating temporary directory: $TEMP_DIR"
+    mkdir -p "$TEMP_DIR"
+}
+
+# Set up temporary directory
+setup_temp_dir
 
 # Check if clusters are available
 echo -e "${BLUE}🔍 Checking cluster availability...${NC}"
@@ -125,7 +150,7 @@ echo ""
 # Check if job was successfully dispatched
 JOB_COUNT=$(kubectl get jobs -n $NAMESPACE --no-headers 2>/dev/null | wc -l || echo "0")
 if [ "$JOB_COUNT" -gt 0 ]; then
-  print_status "✅ Job successfully dispatched to worker cluster!"
+  print_status "Job successfully dispatched to worker cluster!"
 else
   print_warning "⚠️  Job not found on worker cluster. Waiting a bit longer..."
   sleep 15
@@ -145,23 +170,51 @@ if [ -n "$POD_NAME" ]; then
   run_cmd kubectl get pod "$POD_NAME" -n $NAMESPACE
   echo ""
 
-  # Wait for pod to start running and show logs
-  echo -e "${BLUE}📄 Job logs:${NC}"
-  echo "----------------------------------------"
-
-  # Wait for pod to have logs available
-  for i in {1..10}; do
-    if kubectl logs "$POD_NAME" -n $NAMESPACE --tail=1 >/dev/null 2>&1; then
+  # Wait for pod to start running
+  echo -e "${BLUE}⏳ Waiting for pod to start...${NC}"
+  for i in {1..30}; do
+    POD_STATUS=$(kubectl get pod "$POD_NAME" -n $NAMESPACE -o jsonpath='{.status.phase}' 2>/dev/null || echo "")
+    if [ "$POD_STATUS" = "Running" ] || [ "$POD_STATUS" = "Succeeded" ] || [ "$POD_STATUS" = "Failed" ]; then
+      echo "Pod status: $POD_STATUS"
       break
     fi
-    echo "Waiting for logs to be available... ($i/10)"
+    echo "Waiting for pod to start... ($i/30) Current status: $POD_STATUS"
     sleep 2
   done
 
-  # Stream logs with visible command
-  echo -e "${YELLOW}$ kubectl logs $POD_NAME -n $NAMESPACE -f --tail=50${NC}"
-  kubectl logs "$POD_NAME" -n $NAMESPACE -f --tail=50 2>/dev/null || echo "Logs not available"
-  echo "----------------------------------------"
+  # Show pod logs
+  echo -e "${BLUE}📄 Job output:${NC}"
+  echo "========================================"
+  
+  # Wait for container to fully start and begin logging
+  echo "Waiting for container to start and begin logging..."
+  
+  # Wait for logs to be available (retry approach)
+  for i in {1..10}; do
+    if kubectl logs "$POD_NAME" -n $NAMESPACE --tail=1 >/dev/null 2>&1; then
+      echo "Logs are available, starting capture..."
+      break
+    fi
+    echo "Waiting for logs to be available... attempt $i/10"
+    sleep 2
+  done
+  
+  # Now get the logs with follow to capture real-time output
+  echo -e "${YELLOW}$ kubectl logs $POD_NAME -n $NAMESPACE -f${NC}"
+  kubectl logs "$POD_NAME" -n $NAMESPACE -f &
+  LOG_PID=$!
+  
+  # Wait for the job to complete (30 seconds + 10 second buffer)
+  sleep 40
+  
+  # Stop log following
+  kill $LOG_PID 2>/dev/null || true
+  wait $LOG_PID 2>/dev/null || true
+  
+  echo ""
+  echo "Job execution monitoring completed"
+  
+  echo "========================================"
   echo ""
 
   # Wait for job completion

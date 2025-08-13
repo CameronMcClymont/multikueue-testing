@@ -19,6 +19,7 @@ MANAGER_CLUSTER="manager"
 WORKER_CLUSTER="worker"
 WORKER_KUBECONFIG_FILE="worker1.kubeconfig"
 CURRENT_DIR=$(pwd)
+TEMP_DIR="/tmp/multikueue-testing"
 
 echo -e "${BLUE}⚙️  Configuring MultiKueue on Manager Cluster${NC}"
 echo "============================================="
@@ -41,6 +42,30 @@ run_cmd() {
     echo -e "${YELLOW}$ $*${NC}"
     "$@"
 }
+
+# Function to clean up temporary files
+cleanup_temp() {
+    if [ -d "$TEMP_DIR" ]; then
+        echo "Cleaning up temporary directory: $TEMP_DIR"
+        rm -rf "$TEMP_DIR"
+    fi
+}
+
+# Set up cleanup trap
+trap cleanup_temp EXIT
+
+# Create temporary directory
+setup_temp_dir() {
+    if [ -d "$TEMP_DIR" ]; then
+        echo "Cleaning existing temporary directory: $TEMP_DIR"
+        rm -rf "$TEMP_DIR"
+    fi
+    echo "Creating temporary directory: $TEMP_DIR"
+    mkdir -p "$TEMP_DIR"
+}
+
+# Set up temporary directory
+setup_temp_dir
 
 # Check prerequisites
 echo -e "${BLUE}📋 Checking prerequisites...${NC}"
@@ -113,7 +138,7 @@ metadata:
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: multikueue-role
+  name: cluster-admin
 subjects:
 - kind: ServiceAccount
   name: multikueue-sa
@@ -143,25 +168,81 @@ EOF
     # Generate kubeconfig for worker cluster
     echo "Generating kubeconfig for worker cluster..."
     
-    # Get cluster info
-    CLUSTER_NAME=$(kubectl config current-context)
-    CLUSTER_CA=$(kubectl config view --raw -o jsonpath='{.clusters[?(@.name=="'"$CLUSTER_NAME"'")].cluster.certificate-authority-data}')
+    # For separate VM setup, detect the host machine's IP that's accessible from manager VM
+    echo "Detecting host IP for cross-VM communication..."
     
-    # For separate VM setup, we'll use the external port mapping
-    # The worker cluster will be accessible via localhost on a different port
-    echo "Using worker cluster via port forwarding (separate VM setup)"
-    CLUSTER_SERVER="https://localhost:6444"
+    # Try multiple methods to detect the correct IP address
+    HOST_IP=""
+    
+    # Method 1: Check Colima network gateway from manager VM
+    if command -v colima >/dev/null 2>&1; then
+        echo "Attempting to detect Colima network gateway..."
+        # Use temp file to capture gateway detection
+        GATEWAY_FILE="$TEMP_DIR/colima_gateway.txt"
+        if colima ssh -p multikueue-manager -- ip route 2>/dev/null | grep '^default' | awk '{print $3}' | head -1 > "$GATEWAY_FILE" 2>/dev/null; then
+            HOST_IP=$(cat "$GATEWAY_FILE" 2>/dev/null || echo "")
+            if [ -n "$HOST_IP" ] && [ "$HOST_IP" != "127.0.0.1" ]; then
+                echo "Found Colima network gateway: $HOST_IP"
+            else
+                HOST_IP=""
+            fi
+        fi
+    fi
+    
+    # Method 2: Try common Docker/VM network gateways
+    if [ -z "$HOST_IP" ]; then
+        echo "Trying common container network gateways..."
+        for candidate_ip in "host.docker.internal" "192.168.65.1" "192.168.106.1" "172.17.0.1"; do
+            if curl -k --connect-timeout 2 "https://$candidate_ip:6444/api" >/dev/null 2>&1; then
+                HOST_IP="$candidate_ip"
+                echo "Found working host IP: $HOST_IP"
+                break
+            fi
+        done
+    fi
+    
+    # Method 3: Fallback to detecting host's external IP
+    if [ -z "$HOST_IP" ]; then
+        echo "Detecting host machine's external IP..."
+        # Try to get the host's IP on the shared network
+        HOST_IP=$(hostname -I | awk '{print $1}' 2>/dev/null || echo "")
+        if [ -z "$HOST_IP" ]; then
+            HOST_IP=$(ipconfig getifaddr en0 2>/dev/null || echo "")
+        fi
+        if [ -n "$HOST_IP" ]; then
+            echo "Using host external IP: $HOST_IP"
+        fi
+    fi
+    
+    # Final fallback
+    if [ -z "$HOST_IP" ]; then
+        print_warning "Could not auto-detect host IP. Using localhost as fallback."
+        print_warning "If connection fails, you may need to manually determine the correct IP."
+        HOST_IP="127.0.0.1"
+    fi
+    
+    CLUSTER_SERVER="https://$HOST_IP:6444"
+    echo "Using worker cluster endpoint: $CLUSTER_SERVER"
     
     # Get service account token
-    SA_TOKEN=$(kubectl get secret multikueue-sa-token -n kueue-system -o jsonpath='{.data.token}' | base64 -d)
+    echo "Extracting service account token..."
+    TOKEN_FILE="$TEMP_DIR/sa_token.txt"
+    if kubectl get secret multikueue-sa-token -n kueue-system -o jsonpath='{.data.token}' | base64 -d > "$TOKEN_FILE" 2>/dev/null; then
+        SA_TOKEN=$(cat "$TOKEN_FILE")
+        echo "Service account token extracted successfully"
+    else
+        print_error "Failed to extract service account token"
+        exit 1
+    fi
     
     # Create kubeconfig file
+    # Note: Using insecure-skip-tls-verify because the certificate is not valid for the IP address
     cat > $WORKER_KUBECONFIG_FILE <<EOF
 apiVersion: v1
 kind: Config
 clusters:
 - cluster:
-    certificate-authority-data: $CLUSTER_CA
+    insecure-skip-tls-verify: true
     server: $CLUSTER_SERVER
   name: worker-cluster
 contexts:

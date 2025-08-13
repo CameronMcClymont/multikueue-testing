@@ -72,8 +72,19 @@ echo "Resources verified successfully"
 
 print_status "Worker cluster configured successfully"
 
-# Step 2: Verify Configuration
-echo -e "${BLUE}✅ Step 2: Verifying worker cluster configuration...${NC}"
+# Step 2: Verify MultiKueue Service Account
+echo -e "${BLUE}🔐 Step 2: Verifying MultiKueue service account...${NC}"
+
+# Check if multikueue service account exists (should be created by manager script)
+if kubectl get serviceaccount multikueue-sa -n kueue-system >/dev/null 2>&1; then
+    print_status "MultiKueue service account exists on worker cluster"
+else
+    print_warning "MultiKueue service account not found. This should have been created by the manager configuration script."
+    echo "If you encounter connection issues, ensure you ran './3-configure-manager-multikueue.sh' first."
+fi
+
+# Step 3: Verify Configuration
+echo -e "${BLUE}✅ Step 3: Verifying worker cluster configuration...${NC}"
 
 echo "Checking ClusterQueue status..."
 run_cmd kubectl get clusterqueue worker-cluster-queue -n kueue-system -o yaml
