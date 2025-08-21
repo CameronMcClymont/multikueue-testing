@@ -69,12 +69,21 @@ run_cmd colima delete --profile $COLIMA_PROFILE --force 2>/dev/null || true
 print_status "Existing worker Colima profile deleted"
 
 # Start Colima with adequate resources and network access
+if colima start --help | grep -q -- "--network-address"; then
+  NETWORK_FLAG="--network-address"
+elif colima start --help | grep -q -- "--network-host-addresses"; then
+  NETWORK_FLAG="--network-host-addresses"
+else
+  echo "❌ Neither --network-address nor --network-host-addresses is supported by this Colima version"
+  exit 1
+fi
+
 echo -e "${BLUE}🐋 Starting Colima with profile: $COLIMA_PROFILE${NC}"
 run_cmd colima start --profile $COLIMA_PROFILE \
     --cpu 4 \
     --memory 8 \
     --disk 50 \
-    --network-address \
+    $NETWORK_FLAG \
     --kubernetes=false \
     --runtime docker
 
