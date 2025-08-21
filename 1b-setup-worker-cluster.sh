@@ -15,7 +15,6 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # Configuration
-COLIMA_PROFILE="multikueue-worker"
 WORKER_CLUSTER="worker"
 KUEUE_VERSION="v0.13.1"  # Latest as of August 2025
 
@@ -52,7 +51,7 @@ fi
 print_status "Homebrew is installed"
 
 # Install required tools if not available
-tools=("colima" "kubectl" "kind")
+tools=("kubectl" "kind")
 for tool in "${tools[@]}"; do
     if ! command -v "$tool" &> /dev/null; then
         echo "Installing $tool..."
@@ -62,36 +61,6 @@ for tool in "${tools[@]}"; do
         print_status "$tool already installed"
     fi
 done
-
-# Delete any existing worker Colima profile for a clean start
-echo -e "${BLUE}🗑️  Deleting any existing worker Colima profile...${NC}"
-run_cmd colima delete --profile $COLIMA_PROFILE --force 2>/dev/null || true
-print_status "Existing worker Colima profile deleted"
-
-# Start Colima with adequate resources and network access
-if colima start --help | grep -q -- "--network-address"; then
-  NETWORK_FLAG="--network-address"
-elif colima start --help | grep -q -- "--network-host-addresses"; then
-  NETWORK_FLAG="--network-host-addresses"
-else
-  echo "❌ Neither --network-address nor --network-host-addresses is supported by this Colima version"
-  exit 1
-fi
-
-echo -e "${BLUE}🐋 Starting Colima with profile: $COLIMA_PROFILE${NC}"
-run_cmd colima start --profile $COLIMA_PROFILE \
-    --cpu 4 \
-    --memory 8 \
-    --disk 50 \
-    $NETWORK_FLAG \
-    --kubernetes=false \
-    --runtime docker
-
-print_status "Colima started with profile: $COLIMA_PROFILE"
-
-# Wait for Colima to be ready
-echo "Waiting for Colima to be ready..."
-sleep 10
 
 # Create worker cluster with external port mapping for cross-VM access
 echo -e "${BLUE}🏗️  Creating worker cluster: $WORKER_CLUSTER${NC}"
@@ -164,7 +133,6 @@ echo -e "${GREEN}🎉 Worker cluster setup completed successfully!${NC}"
 echo ""
 echo "Worker cluster information:"
 echo "- Cluster name: kind-$WORKER_CLUSTER"
-echo "- Colima VM profile: $COLIMA_PROFILE"
 echo "- API server: localhost:6443 (within worker VM)"
 echo "- API server (external): localhost:6444 (accessible from host/other VMs)"
 echo "- LoadBalancer ports: 8080/8443"
