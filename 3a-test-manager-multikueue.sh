@@ -48,14 +48,14 @@ run_cmd() {
 echo -e "${BLUE}📋 Checking prerequisites...${NC}"
 
 # Check if manager cluster exists and is accessible
-if ! kubectl config get-contexts | grep -q "k3d-$MANAGER_CLUSTER"; then
-    print_error "Manager cluster 'k3d-$MANAGER_CLUSTER' not found. Please run './1a-setup-manager-cluster.sh' first."
+if ! kubectl config get-contexts | grep -q "kind-$MANAGER_CLUSTER"; then
+    print_error "Manager cluster 'kind-$MANAGER_CLUSTER' not found. Please run './1a-setup-manager-cluster.sh' first."
     exit 1
 fi
 
 # Switch to manager cluster context
 echo "Switching to manager cluster context..."
-run_cmd kubectl config use-context k3d-$MANAGER_CLUSTER
+run_cmd kubectl config use-context kind-$MANAGER_CLUSTER
 
 print_status "Manager cluster is accessible"
 

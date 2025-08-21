@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # MultiKueue Worker Cluster Setup Script
-# Sets up the worker Kubernetes cluster using k3d
+# Sets up the worker Kubernetes cluster using kind
 # Author: Claude Code
 # Date: 2025-08-07
 
@@ -52,7 +52,7 @@ fi
 print_status "Homebrew is installed"
 
 # Install required tools if not available
-tools=("colima" "kubectl" "k3d")
+tools=("colima" "kubectl" "kind")
 for tool in "${tools[@]}"; do
     if ! command -v "$tool" &> /dev/null; then
         echo "Installing $tool..."
@@ -86,20 +86,13 @@ sleep 10
 
 # Create worker cluster with external port mapping for cross-VM access
 echo -e "${BLUE}🏗️  Creating worker cluster: $WORKER_CLUSTER${NC}"
-run_cmd k3d cluster create $WORKER_CLUSTER \
-    --agents 1 \
-    --servers 1 \
-    --port "6444:6443@server:0" \
-    --port "8080:80@loadbalancer" \
-    --port "8443:443@loadbalancer" \
-    --k3s-arg "--disable=traefik@server:0" \
-    --wait
+run_cmd kind create cluster --config kind-worker.yaml
 
 print_status "Worker cluster '$WORKER_CLUSTER' created"
 
 # Verify cluster
 echo -e "${BLUE}🔍 Verifying worker cluster context...${NC}"
-run_cmd kubectl config use-context k3d-$WORKER_CLUSTER
+run_cmd kubectl config use-context kind-$WORKER_CLUSTER
 run_cmd kubectl get nodes
 
 # Install Kueue on worker cluster
@@ -161,14 +154,14 @@ echo ""
 echo -e "${GREEN}🎉 Worker cluster setup completed successfully!${NC}"
 echo ""
 echo "Worker cluster information:"
-echo "- Cluster name: k3d-$WORKER_CLUSTER"
+echo "- Cluster name: kind-$WORKER_CLUSTER"
 echo "- Colima VM profile: $COLIMA_PROFILE"
 echo "- API server: localhost:6443 (within worker VM)"
 echo "- API server (external): localhost:6444 (accessible from host/other VMs)"
 echo "- LoadBalancer ports: 8080/8443"
 echo ""
 echo "To check the cluster:"
-echo "- kubectl config use-context k3d-$WORKER_CLUSTER"
+echo "- kubectl config use-context kind-$WORKER_CLUSTER"
 echo "- kubectl get pods -n kueue-system"
 echo ""
 echo "Available clusters:"

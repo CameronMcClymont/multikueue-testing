@@ -43,8 +43,8 @@ run_cmd() {
 echo -e "${BLUE}📋 Checking prerequisites...${NC}"
 
 # Check if worker cluster exists
-if ! kubectl config get-contexts | grep -q "k3d-$WORKER_CLUSTER"; then
-    print_error "Worker cluster 'k3d-$WORKER_CLUSTER' not found. Please run './1b-setup-worker-cluster.sh' first."
+if ! kubectl config get-contexts | grep -q "kind-$WORKER_CLUSTER"; then
+    print_error "Worker cluster 'kind-$WORKER_CLUSTER' not found. Please run './1b-setup-worker-cluster.sh' first."
     exit 1
 fi
 
@@ -55,7 +55,7 @@ echo -e "${BLUE}🔧 Step 1: Configuring worker cluster...${NC}"
 
 # Switch to worker cluster context (should already be available from previous setup)
 echo "Switching to worker cluster context"
-run_cmd kubectl config use-context k3d-$WORKER_CLUSTER
+run_cmd kubectl config use-context kind-$WORKER_CLUSTER
 
 # Apply worker cluster manifests
 echo "Applying worker cluster manifests..."
@@ -107,6 +107,6 @@ echo "- LocalQueue (multikueue-demo): worker-queue"
 echo "- LocalQueue (default): default-local-queue"
 echo ""
 echo "To check worker cluster status:"
-echo "- kubectl config use-context k3d-$WORKER_CLUSTER"
+echo "- kubectl config use-context kind-$WORKER_CLUSTER"
 echo "- kubectl get clusterqueue,localqueue -A"
 echo "- kubectl get pods -n kueue-system"

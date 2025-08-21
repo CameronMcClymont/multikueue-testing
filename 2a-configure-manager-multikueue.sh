@@ -76,14 +76,14 @@ setup_temp_dir
 echo -e "${BLUE}📋 Checking prerequisites...${NC}"
 
 # Check if manager cluster exists
-if ! kubectl config get-contexts | grep -q "k3d-$MANAGER_CLUSTER"; then
-    print_error "Manager cluster 'k3d-$MANAGER_CLUSTER' not found. Please run './1a-setup-manager-cluster.sh' first."
+if ! kubectl config get-contexts | grep -q "kind-$MANAGER_CLUSTER"; then
+    print_error "Manager cluster 'kind-$MANAGER_CLUSTER' not found. Please run './1a-setup-manager-cluster.sh' first."
     exit 1
 fi
 
 # Check if worker cluster exists
-if ! kubectl config get-contexts | grep -q "k3d-$WORKER_CLUSTER"; then
-    print_error "Worker cluster 'k3d-$WORKER_CLUSTER' not found. Please run './1b-setup-worker-cluster.sh' first."
+if ! kubectl config get-contexts | grep -q "kind-$WORKER_CLUSTER"; then
+    print_error "Worker cluster 'kind-$WORKER_CLUSTER' not found. Please run './1b-setup-worker-cluster.sh' first."
     exit 1
 fi
 
@@ -103,7 +103,7 @@ if [ "$use_existing_kubeconfig" = false ]; then
     
     # Switch to worker cluster context (should already be available from previous setup)
     echo "Switching to worker cluster context to create service account"
-    run_cmd kubectl config use-context k3d-$WORKER_CLUSTER
+    run_cmd kubectl config use-context kind-$WORKER_CLUSTER
     
     # Create service account and RBAC
     echo -e "${YELLOW}$ kubectl apply -f - <<EOF${NC}"
@@ -272,7 +272,7 @@ echo -e "${BLUE}🏗️  Step 2: Configuring manager cluster...${NC}"
 
 # Switch to manager cluster context
 echo "Switching to manager cluster context"
-run_cmd kubectl config use-context k3d-$MANAGER_CLUSTER
+run_cmd kubectl config use-context kind-$MANAGER_CLUSTER
 
 # Create secret with worker cluster kubeconfig
 echo "Creating worker cluster secret in manager cluster..."

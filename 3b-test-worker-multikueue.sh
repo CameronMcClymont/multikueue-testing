@@ -69,13 +69,13 @@ setup_temp_dir
 
 # Check if clusters are available
 echo -e "${BLUE}🔍 Checking cluster availability...${NC}"
-if ! kubectl config get-contexts | grep -q "k3d-$MANAGER_CLUSTER"; then
-  print_error "Manager cluster 'k3d-$MANAGER_CLUSTER' not found. Run setup scripts first."
+if ! kubectl config get-contexts | grep -q "kind-$MANAGER_CLUSTER"; then
+  print_error "Manager cluster 'kind-$MANAGER_CLUSTER' not found. Run setup scripts first."
   exit 1
 fi
 
-if ! kubectl config get-contexts | grep -q "k3d-$WORKER_CLUSTER"; then
-  print_error "Worker cluster 'k3d-$WORKER_CLUSTER' not found. Run setup scripts first."
+if ! kubectl config get-contexts | grep -q "kind-$WORKER_CLUSTER"; then
+  print_error "Worker cluster 'kind-$WORKER_CLUSTER' not found. Run setup scripts first."
   exit 1
 fi
 
@@ -86,7 +86,7 @@ echo -e "${BLUE}📝 Submitting job to manager cluster...${NC}"
 
 # Switch to manager cluster context
 echo "Switching to manager cluster context"
-run_cmd kubectl config use-context k3d-$MANAGER_CLUSTER
+run_cmd kubectl config use-context kind-$MANAGER_CLUSTER
 
 # Clean up any existing job
 run_cmd kubectl delete job $JOB_NAME -n $NAMESPACE --ignore-not-found=true
@@ -126,7 +126,7 @@ echo ""
 
 # Switch to worker cluster to check for job
 echo "Switching to worker cluster context"
-run_cmd kubectl config use-context k3d-$WORKER_CLUSTER
+run_cmd kubectl config use-context kind-$WORKER_CLUSTER
 
 # Wait for dispatch to worker cluster
 echo -e "${BLUE}🚚 Checking dispatch to worker cluster...${NC}"
@@ -264,7 +264,7 @@ fi
 echo -e "${BLUE}🔄 Final status on manager cluster:${NC}"
 
 echo "Switching back to manager cluster context"
-run_cmd kubectl config use-context k3d-$MANAGER_CLUSTER
+run_cmd kubectl config use-context kind-$MANAGER_CLUSTER
 run_cmd kubectl get jobs -n $NAMESPACE
 run_cmd kubectl get workloads -n $NAMESPACE -o wide
 
@@ -278,7 +278,7 @@ echo ""
 echo -e "${BLUE}📋 Events in $NAMESPACE namespace (worker cluster):${NC}"
 
 echo "Switching to worker cluster context for events"
-run_cmd kubectl config use-context k3d-$WORKER_CLUSTER
+run_cmd kubectl config use-context kind-$WORKER_CLUSTER
 run_cmd kubectl get events -n $NAMESPACE --sort-by='.lastTimestamp'
 
 echo ""
