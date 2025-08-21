@@ -64,7 +64,7 @@ done
 
 # Create worker cluster with external port mapping for cross-VM access
 echo -e "${BLUE}🏗️  Creating worker cluster: $WORKER_CLUSTER${NC}"
-run_cmd sudo kind create cluster --config kind-worker.yaml
+run_cmd kind create cluster --config kind-worker.yaml
 
 print_status "Worker cluster '$WORKER_CLUSTER' created"
 
