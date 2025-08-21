@@ -11,14 +11,10 @@ CYAN='\033[0;36m'
 NC='\033[0m' # No Color
 
 # Configuration
-MANAGER_CLUSTER="manager"
 WORKER_CLUSTER="worker"
 WORKER_KUBECONFIG_FILE="worker.kubeconfig"
 CURRENT_DIR=$(pwd)
 TEMP_DIR="/tmp/multikueue-testing"
-
-echo -e "${BLUE}⚙️  Configuring MultiKueue on Manager Cluster${NC}"
-echo "============================================="
 
 # Function to print status
 print_status() {
@@ -69,12 +65,6 @@ setup_temp_dir
 
 # Check prerequisites
 echo -e "${BLUE}📋 Checking prerequisites...${NC}"
-
-# Check if manager cluster exists
-if ! kubectl config get-contexts | grep -q "kind-$MANAGER_CLUSTER"; then
-    print_error "Manager cluster 'kind-$MANAGER_CLUSTER' not found. Please run './1a-setup-manager-cluster.sh' first."
-    exit 1
-fi
 
 # Check if worker cluster exists
 if ! kubectl config get-contexts | grep -q "kind-$WORKER_CLUSTER"; then
