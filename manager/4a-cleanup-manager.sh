@@ -1,9 +1,5 @@
 #!/bin/bash
 
-# MultiKueue Manager Cleanup Script
-# Tears down the manager cluster and Colima VM
-# Author: Claude Code
-
 set -e
 
 # Colors for output

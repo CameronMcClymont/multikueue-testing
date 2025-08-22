@@ -1,9 +1,5 @@
 #!/bin/bash
 
-# MultiKueue Remote Cluster Cleanup Script
-# Cleans up MultiKueue resources from remote cluster (does NOT delete the cluster)
-# Author: Claude Code
-
 set -e
 
 # Colors for output

@@ -2,8 +2,6 @@
 
 # MultiKueue Manager Cluster Setup Script
 # Sets up the manager Kubernetes cluster using Colima and kind
-# Author: Claude Code
-# Date: 2025-08-07
 
 set -e
 
@@ -110,7 +108,8 @@ run_cmd kubectl wait --for=condition=available --timeout=300s deployment/kueue-c
 
 print_status "Kueue components are ready on manager cluster"
 
-# Configure Kueue to work with minimal workload types only
+# Configure Kueue to work with minimal workload types only.
+# This seems to be required for MultiKueue to work?
 echo -e "${BLUE}⚙️  Configuring Kueue for minimal workload types...${NC}"
 
 # Create ConfigMap to disable external integrations validation

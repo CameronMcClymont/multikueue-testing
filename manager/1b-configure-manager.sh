@@ -2,8 +2,6 @@
 
 # MultiKueue Manager Configuration Script
 # Configures MultiKueue resources on the manager cluster
-# Author: Claude Code
-# Date: 2025-08-07
 
 set -e
 
