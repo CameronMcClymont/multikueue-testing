@@ -110,6 +110,48 @@ run_cmd kubectl wait --for=condition=available --timeout=300s deployment/kueue-c
 
 print_status "Kueue components are ready on manager cluster"
 
+# Configure Kueue to work with minimal workload types only
+echo -e "${BLUE}⚙️  Configuring Kueue for minimal workload types...${NC}"
+
+# Create ConfigMap to disable external integrations validation
+echo -e "${YELLOW}$ kubectl create configmap kueue-manager-config -n kueue-system --from-literal=controller_manager_config.yaml='<YAML_CONFIG>' --dry-run=client -o yaml | kubectl apply -f -${NC}"
+kubectl create configmap kueue-manager-config -n kueue-system --from-literal=controller_manager_config.yaml='
+apiVersion: config.kueue.x-k8s.io/v1beta1
+kind: Configuration
+namespace: kueue-system
+health:
+  healthProbeBindAddress: :8081
+metrics:
+  bindAddress: :8080
+webhook:
+  port: 9443
+leaderElection:
+  leaderElect: true
+  resourceName: c1f6bfd2.kueue.x-k8s.io
+controller:
+  groupKindConcurrency:
+    Job.batch: 5
+    Pod.v1: 5
+    Workload.kueue.x-k8s.io: 5
+    LocalQueue.kueue.x-k8s.io: 1
+    ClusterQueue.kueue.x-k8s.io: 1
+    ResourceFlavor.kueue.x-k8s.io: 1
+integrations:
+  frameworks:
+    - "batch/job"
+  podOptions:
+    namespaceSelector:
+      matchExpressions:
+      - key: kubernetes.io/metadata.name
+        operator: NotIn
+        values: [ kube-system, kueue-system ]
+' --dry-run=client -o yaml | kubectl apply -f -
+
+# Restart Kueue controller to pick up the new config
+run_cmd kubectl rollout restart deployment/kueue-controller-manager -n kueue-system
+
+print_status "Kueue configured for minimal workload types (Jobs only)"
+
 echo ""
 echo -e "${GREEN}🎉 Manager cluster setup completed successfully!${NC}"
 echo ""
