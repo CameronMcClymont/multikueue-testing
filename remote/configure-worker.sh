@@ -50,7 +50,7 @@ fi
 # Install required tools
 echo -e "${BLUE}🔧 Installing required tools...${NC}"
 
-tools=("kubectl" "kind" "helm")
+tools=("kubectl" "kind" "helm" "yq")
 for tool in "${tools[@]}"; do
     if ! command -v "$tool" &> /dev/null; then
         echo "Installing $tool..."
@@ -78,7 +78,7 @@ print_status "Worker IP added to kind config"
 
 # Update "apiServerAddress:" field to $WORKER_IP
 echo -e "${BLUE}✍️  Updating apiServerAddress to $WORKER_IP...${NC}"
-sed -i "/- \"0.0.0.0\"/a\      - \"${WORKER_IP}\"" remote-config.yaml
+yq -i '.networking.apiServerAddress = env(WORKER_IP)' remote-config.yaml
 print_status "apiServerAddress updated"
 
 echo -e "${BLUE}☸️  Creating kind cluster...${NC}"
