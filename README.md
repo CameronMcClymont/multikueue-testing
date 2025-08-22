@@ -24,3 +24,6 @@ on Ubuntu. The clusters both use Kind (via Colima for the manager).
 - Run `./1b-configure-manager.sh`
 - Run `./2-configure-remote-multikueue.sh`
 - Test your setup with `./3a-test-manager.sh` and `./3b-test-remote.sh`
+
+Jobs submitted to the `remote-queue` in the `multikueue-demo` namespace will be
+dispatched to the remote worker cluster.
