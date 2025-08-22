@@ -71,10 +71,15 @@ echo -e "${BLUE}🗑️  Deleting any existing kind cluster...${NC}"
 run_cmd kind delete cluster --name remote-cluster
 print_status "Existing kind cluster deleted"
 
-# Add the worker's external IP to the extraSANs in the kind config
-echo -e "${BLUE}✍️  Adding worker IP to kind config...${NC}"
-sed -i "s/<WORKER_IP>/$WORKER_IP/g" remote-config.yaml
+# Add the worker's external IP to the certSANs in the cluster config
+echo -e "${BLUE}✍️  Adding worker IP to certSANs...${NC}"
+yq -i '.nodes[0].kubeadmConfigPatches[0] |= sub("certSANs:\n", "certSANs:\n      - \"${WORKER_IP}\"\n")' remote-config.yaml
 print_status "Worker IP added to kind config"
+
+# Update "apiServerAddress:" field to $WORKER_IP
+echo -e "${BLUE}✍️  Updating apiServerAddress to $WORKER_IP...${NC}"
+yq -i '.networking.apiServerAddress = env(WORKER_IP)' remote-config.yaml
+print_status "apiServerAddress updated"
 
 echo -e "${BLUE}☸️  Creating kind cluster...${NC}"
 run_cmd kind create cluster --name remote-cluster --config remote-config.yaml
@@ -82,11 +87,6 @@ print_status "Kind cluster created"
 
 echo -e "${BLUE}🔑 Exporting kubeconfig...${NC}"
 kind get kubeconfig --name remote-cluster > remote-kubeconfig.yaml
-
-# Update "server:" field to https://$WORKER_IP:6443
-echo -e "${BLUE}🌐 Updating kubeconfig server address...${NC}"
-sed -i "s|server: https://.*:6443|server: https://${WORKER_IP}:6443|g" remote-kubeconfig.yaml
-print_status "Kubeconfig server address updated"
 
 echo ""
 echo "Remote worker setup is done!"
