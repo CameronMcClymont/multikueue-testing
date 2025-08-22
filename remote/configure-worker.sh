@@ -72,9 +72,16 @@ run_cmd kind delete cluster --name remote-cluster
 print_status "Existing kind cluster deleted"
 
 # Add the worker's external IP to the certSANs in the cluster config
-echo -e "${BLUE}✍️  Adding worker IP to certSANs...${NC}"
-sed -i "/certSANs:/a\\      - \"$WORKER_IP\"" remote-config.yaml
-print_status "Worker IP added to kind config"
+echo -e "${BLUE}✍️  Adding worker IP ($WORKER_IP) to certSANs...${NC}"
+
+# Check if WORKER_IP is already in certSANs to avoid duplicates
+if ! grep -q "- \"$WORKER_IP\"" remote-config.yaml; then
+    # Add WORKER_IP to certSANs list
+    sed -i "/certSANs:/a\\      - \"$WORKER_IP\"" remote-config.yaml
+    print_status "Added $WORKER_IP to certSANs in remote-config.yaml"
+else
+    print_status "$WORKER_IP already present in certSANs"
+fi
 
 # Update "apiServerAddress:" field to $WORKER_IP
 echo -e "${BLUE}✍️  Updating apiServerAddress to $WORKER_IP...${NC}"
@@ -91,5 +98,6 @@ kind get kubeconfig --name remote-cluster > remote-kubeconfig.yaml
 echo ""
 echo "Remote worker setup is done!"
 echo "Next steps: follow the instructions in the main README to configure the manager cluster:"
+echo ""
 
 cat ../README.md
