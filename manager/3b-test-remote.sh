@@ -81,7 +81,7 @@ print_status "Connected to remote cluster"
 
 # Verify remote configuration exists on manager cluster
 print_info "Verifying remote MultiKueue configuration on manager cluster..."
-run_cmd kubectl config use-context k3d-manager
+run_cmd kubectl config use-context kind-manager
 if ! kubectl get clusterqueue remote-cluster-queue -n kueue-system > /dev/null 2>&1; then
     print_error "Remote cluster queue not found on manager cluster."
     print_error "This will create the necessary remote resources:"
@@ -125,7 +125,7 @@ while [ $COUNTER -lt $TIMEOUT ]; do
         print_status "Job successfully dispatched to remote cluster!"
         break
     fi
-    
+
     echo -n "."
     sleep 1
     COUNTER=$((COUNTER + 1))
@@ -133,17 +133,17 @@ done
 
 if [ $COUNTER -eq $TIMEOUT ]; then
     print_error "Timeout waiting for job dispatch to remote cluster"
-    
+
     # Debug information
     print_info "Manager cluster job status:"
     kubectl get jobs -n multikueue-demo
-    
+
     print_info "Manager cluster workloads:"
     kubectl get workloads -n multikueue-demo
-    
+
     print_info "MultiKueue controller logs:"
     kubectl logs -n kueue-system deployment/kueue-controller-manager --tail=50
-    
+
     exit 1
 fi
 
@@ -168,7 +168,7 @@ REMOTE_POD=$(kubectl --kubeconfig="$REMOTE_KUBECONFIG" get pods -n multikueue-de
 if [ -z "$REMOTE_POD" ]; then
   print_info "Job-based pod lookup failed, searching for recent busybox pods on remote cluster..."
   REMOTE_POD=$(kubectl --kubeconfig="$REMOTE_KUBECONFIG" get pods -n multikueue-demo --sort-by=.metadata.creationTimestamp -o jsonpath='{range .items[*]}{.metadata.creationTimestamp}{" "}{.metadata.name}{" "}{.spec.containers[0].image}{"\n"}{end}' 2>/dev/null | grep "busybox" | tail -1 | awk '{print $2}' || echo "")
-  
+
   if [ -z "$REMOTE_POD" ]; then
     print_info "No busybox pod found, getting most recent pod on remote cluster..."
     REMOTE_POD=$(kubectl --kubeconfig="$REMOTE_KUBECONFIG" get pods -n multikueue-demo --sort-by=.metadata.creationTimestamp --no-headers -o custom-columns=":metadata.name" 2>/dev/null | tail -1 || echo "")
@@ -177,10 +177,10 @@ fi
 
 if [ -n "$REMOTE_POD" ]; then
     print_info "Found remote pod: $REMOTE_POD"
-    
+
     # Check if pod is already completed
     POD_STATUS=$(kubectl --kubeconfig="$REMOTE_KUBECONFIG" get pod "$REMOTE_POD" -n multikueue-demo -o jsonpath='{.status.phase}' 2>/dev/null || echo "")
-    
+
     print_msg "$MAGENTA" "--- Remote Job Logs ---"
     if [ "$POD_STATUS" = "Succeeded" ] || [ "$POD_STATUS" = "Failed" ]; then
         print_info "Pod already completed with status: $POD_STATUS. Getting complete logs:"
@@ -250,13 +250,13 @@ if [ "$JOB_COMPLETED" = "true" ]; then
     echo "- Job executed on remote cluster ✅"
     echo ""
     echo "Your MultiKueue setup is working correctly! 🚀"
-    
+
     # Clean up test resources
     print_info "Cleaning up test resources..."
     kubectl delete -f remote-test-job.yaml >/dev/null 2>&1 || true  # Remove from manager cluster (job manifest)
     kubectl --kubeconfig="$REMOTE_KUBECONFIG" delete jobs --all -n multikueue-demo >/dev/null 2>&1 || true  # Remove from remote cluster
     rm -f remote-test-job.yaml
-    
+
     exit 0
 else
     print_error "Remote MultiKueue test FAILED"

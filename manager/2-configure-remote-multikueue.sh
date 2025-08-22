@@ -91,7 +91,7 @@ run_cmd kubectl --kubeconfig="$REMOTE_KUBECONFIG" create namespace multikueue-de
 
 # Apply remote cluster MultiKueue configuration
 print_info "Applying remote cluster MultiKueue configuration..."
-run_cmd kubectl --kubeconfig="$REMOTE_KUBECONFIG" apply -f remote-cluster-manifests.yaml
+run_cmd kubectl --kubeconfig="$REMOTE_KUBECONFIG" apply -f remote-manifests.yaml
 
 print_status "Remote cluster MultiKueue configuration applied"
 
@@ -177,7 +177,7 @@ print_status "Generated remote.kubeconfig for manager cluster access"
 
 # Store the kubeconfig as a secret in manager cluster
 print_info "Storing remote cluster credentials in manager cluster..."
-run_cmd kubectl config use-context k3d-manager
+run_cmd kubectl config use-context kind-manager
 
 # Create the secret with remote cluster kubeconfig
 run_cmd kubectl create secret generic remote-kubeconfig \

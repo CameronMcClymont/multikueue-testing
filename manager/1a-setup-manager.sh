@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# MultiKueue Worker Cluster Setup Script
-# Sets up the worker Kubernetes cluster using kind
+# MultiKueue Manager Cluster Setup Script
+# Sets up the manager Kubernetes cluster using Colima and kind
 # Author: Claude Code
 # Date: 2025-08-07
 
@@ -15,11 +15,12 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # Configuration
-WORKER_CLUSTER="worker"
+COLIMA_PROFILE="multikueue-manager"
+MANAGER_CLUSTER="manager"
 KUEUE_VERSION="v0.13.1"  # Latest as of August 2025
 
-echo -e "${BLUE}🚀 Setting up MultiKueue Worker Cluster${NC}"
-echo "======================================"
+echo -e "${BLUE}🚀 Setting up MultiKueue Manager Cluster${NC}"
+echo "========================================"
 
 # Function to print status
 print_status() {
@@ -50,8 +51,10 @@ if ! command -v brew &> /dev/null; then
 fi
 print_status "Homebrew is installed"
 
-# Install required tools if not available
-tools=("kubectl" "kind")
+# Install required tools
+echo -e "${BLUE}🔧 Installing required tools...${NC}"
+
+tools=("colima" "kubectl" "kind" "helm")
 for tool in "${tools[@]}"; do
     if ! command -v "$tool" &> /dev/null; then
         echo "Installing $tool..."
@@ -62,29 +65,50 @@ for tool in "${tools[@]}"; do
     fi
 done
 
-# Create worker cluster with external port mapping for cross-VM access
-echo -e "${BLUE}🏗️  Creating worker cluster: $WORKER_CLUSTER${NC}"
-run_cmd kind create cluster --config kind-worker.yaml
+# Delete any existing manager Colima profile for a clean start
+echo -e "${BLUE}🗑️  Deleting any existing manager Colima profile...${NC}"
+run_cmd colima delete --profile $COLIMA_PROFILE --force 2>/dev/null || true
+print_status "Existing manager Colima profile deleted"
 
-print_status "Worker cluster '$WORKER_CLUSTER' created"
+# Start Colima with adequate resources and network access
+echo -e "${BLUE}🐋 Starting Colima with profile: $COLIMA_PROFILE${NC}"
+run_cmd colima start --profile $COLIMA_PROFILE \
+    --cpu 4 \
+    --memory 8 \
+    --disk 50 \
+    --network-address \
+    --kubernetes=false \
+    --runtime docker
+
+print_status "Colima started with profile: $COLIMA_PROFILE"
+
+# Wait for Colima to be ready
+echo "Waiting for Colima to be ready..."
+sleep 10
+
+# Create manager cluster (no custom network needed in separate VM setup)
+echo -e "${BLUE}🏗️  Creating manager cluster: $MANAGER_CLUSTER${NC}"
+run_cmd kind create cluster --config manager-config.yaml
+
+print_status "Manager cluster '$MANAGER_CLUSTER' created"
 
 # Verify cluster
-echo -e "${BLUE}🔍 Verifying worker cluster context...${NC}"
-run_cmd kubectl config use-context kind-$WORKER_CLUSTER
+echo -e "${BLUE}🔍 Verifying manager cluster context...${NC}"
+run_cmd kubectl config use-context kind-$MANAGER_CLUSTER
 run_cmd kubectl get nodes
 
-# Install Kueue on worker cluster
-echo -e "${BLUE}📦 Installing Kueue on worker cluster...${NC}"
+# Install Kueue on manager cluster
+echo -e "${BLUE}📦 Installing Kueue on manager cluster...${NC}"
 run_cmd kubectl apply --server-side -f https://github.com/kubernetes-sigs/kueue/releases/download/$KUEUE_VERSION/manifests.yaml
 
-print_status "Kueue installed on worker cluster"
+print_status "Kueue installed on manager cluster"
 
 # Wait for Kueue to be ready
 echo -e "${BLUE}⏳ Waiting for Kueue components to be ready...${NC}"
-echo "Waiting for Kueue components in worker cluster..."
+echo "Waiting for Kueue components in manager cluster..."
 run_cmd kubectl wait --for=condition=available --timeout=300s deployment/kueue-controller-manager -n kueue-system
 
-print_status "Kueue components are ready on worker cluster"
+print_status "Kueue components are ready on manager cluster"
 
 # Configure Kueue to work with minimal workload types only
 echo -e "${BLUE}⚙️  Configuring Kueue for minimal workload types...${NC}"
@@ -128,18 +152,21 @@ run_cmd kubectl rollout restart deployment/kueue-controller-manager -n kueue-sys
 
 print_status "Kueue configured for minimal workload types (Jobs only)"
 
+touch remote-kubeconfig.yaml
+
 echo ""
-echo -e "${GREEN}🎉 Worker cluster setup completed successfully!${NC}"
+echo -e "${GREEN}🎉 Manager cluster setup completed successfully!${NC}"
 echo ""
-echo "Worker cluster information:"
-echo "- Cluster name: kind-$WORKER_CLUSTER"
-echo "- API server: localhost:6443 (within worker VM)"
-echo "- API server (external): localhost:6444 (accessible from host/other VMs)"
-echo "- LoadBalancer ports: 8080/8443"
+echo "Manager cluster information:"
+echo "- Cluster name: kind-$MANAGER_CLUSTER"
+echo "- Colima VM profile: $COLIMA_PROFILE"
+echo "- API server: localhost:6443"
+echo "- LoadBalancer ports: 80/443"
 echo ""
 echo "To check the cluster:"
-echo "- kubectl config use-context kind-$WORKER_CLUSTER"
+echo "- kubectl config use-context kind-$MANAGER_CLUSTER"
 echo "- kubectl get pods -n kueue-system"
 echo ""
-echo "Available clusters:"
-run_cmd kubectl config get-contexts
+echo "Next steps:"
+echo "- Paste the content from your remote worker's remote-kubeconfig.yaml file to the remote-kubeconfig.yaml in this directory."
+echo "- Run ./1b-configure.manager.sh"

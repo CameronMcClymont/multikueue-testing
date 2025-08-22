@@ -41,7 +41,7 @@ run_cmd() {
 
 # Check if user really wants to cleanup
 echo -e "${YELLOW}This will completely remove:${NC}"
-echo "- Manager k3d cluster ($MANAGER_CLUSTER)"
+echo "- Manager kind cluster ($MANAGER_CLUSTER)"
 echo "- Manager Colima VM with profile: $MANAGER_COLIMA_PROFILE"
 echo "- Generated manager kubeconfig contexts"
 echo ""
@@ -64,10 +64,10 @@ echo -e "${BLUE}🛑 Cleaning up manager cluster workloads...${NC}"
 if [ "$manager_vm_available" = true ]; then
   echo "Switching to manager VM for workload cleanup..."
   colima start --profile $MANAGER_COLIMA_PROFILE >/dev/null 2>&1 || true
-  
-  if k3d cluster list 2>/dev/null | grep -q $MANAGER_CLUSTER; then
+
+  if kind cluster list 2>/dev/null | grep -q $MANAGER_CLUSTER; then
     echo "Cleaning up workloads from manager cluster..."
-    kubectl config use-context k3d-$MANAGER_CLUSTER 2>/dev/null || true
+    kubectl config use-context kind-$MANAGER_CLUSTER 2>/dev/null || true
     kubectl delete jobs --all -n multikueue-demo --ignore-not-found=true
     kubectl delete jobs --all -n default --ignore-not-found=true
     print_status "Manager cluster workloads cleaned up"
@@ -76,14 +76,14 @@ else
   print_warning "Manager VM not available - skipping manager workload cleanup"
 fi
 
-# Delete manager k3d cluster
-echo -e "${BLUE}🗑️  Deleting manager k3d cluster...${NC}"
+# Delete manager kind cluster
+echo -e "${BLUE}🗑️  Deleting manager kind cluster...${NC}"
 
 if [ "$manager_vm_available" = true ]; then
   colima start --profile $MANAGER_COLIMA_PROFILE >/dev/null 2>&1 || true
-  if k3d cluster list 2>/dev/null | grep -q $MANAGER_CLUSTER; then
+  if kind cluster list 2>/dev/null | grep -q $MANAGER_CLUSTER; then
     echo "Deleting manager cluster: $MANAGER_CLUSTER"
-    run_cmd k3d cluster delete $MANAGER_CLUSTER
+    run_cmd kind cluster delete $MANAGER_CLUSTER
     print_status "Manager cluster deleted"
   else
     print_warning "Manager cluster '$MANAGER_CLUSTER' not found"
@@ -109,15 +109,15 @@ run_cmd colima delete --profile $MANAGER_COLIMA_PROFILE --force 2>/dev/null || p
 # Clean up kubectl contexts
 echo -e "${BLUE}🔧 Cleaning up manager kubectl contexts...${NC}"
 
-if kubectl config get-contexts k3d-$MANAGER_CLUSTER >/dev/null 2>&1; then
-  run_cmd kubectl config delete-context k3d-$MANAGER_CLUSTER
+if kubectl config get-contexts kind-$MANAGER_CLUSTER >/dev/null 2>&1; then
+  run_cmd kubectl config delete-context kind-$MANAGER_CLUSTER
 else
-  echo -e "${YELLOW}Manager cluster context 'k3d-$MANAGER_CLUSTER' not found (likely already cleaned up)${NC}"
+  echo -e "${YELLOW}Manager cluster context 'kind-$MANAGER_CLUSTER' not found (likely already cleaned up)${NC}"
 fi
 
 # Clean up clusters and users
-run_cmd kubectl config delete-cluster k3d-$MANAGER_CLUSTER 2>/dev/null || true
-run_cmd kubectl config delete-user k3d-$MANAGER_CLUSTER 2>/dev/null || true
+run_cmd kubectl config delete-cluster kind-$MANAGER_CLUSTER 2>/dev/null || true
+run_cmd kubectl config delete-user kind-$MANAGER_CLUSTER 2>/dev/null || true
 
 print_status "Manager kubectl contexts cleaned up"
 

@@ -85,7 +85,7 @@ kubectl --kubeconfig="$REMOTE_KUBECONFIG" delete jobs --all -n multikueue-demo -
 
 # Clean up our custom resources from remote cluster
 print_info "Removing custom MultiKueue resources from remote cluster..."
-kubectl --kubeconfig="$REMOTE_KUBECONFIG" delete -f remote-cluster-manifests.yaml --ignore-not-found=true --wait=false 2>/dev/null || \
+kubectl --kubeconfig="$REMOTE_KUBECONFIG" delete -f remote-manifests.yaml --ignore-not-found=true --wait=false 2>/dev/null || \
   print_warning "Could not remove custom resources (cluster may be unavailable or resources not found)"
 
 # Clean up service account and RBAC
@@ -130,10 +130,10 @@ fi
 
 # Clean up remote cluster configuration from manager cluster (if accessible)
 print_info "Cleaning up remote cluster configuration from manager cluster..."
-if kubectl config get-contexts k3d-manager >/dev/null 2>&1; then
+if kubectl config get-contexts kind-manager >/dev/null 2>&1; then
   echo "Switching to manager cluster to clean up remote configuration..."
-  kubectl config use-context k3d-manager >/dev/null 2>&1 || true
-  
+  kubectl config use-context kind-manager >/dev/null 2>&1 || true
+
   # Remove remote cluster resources from manager (without waiting for finalizers)
   kubectl delete secret remote-kubeconfig -n kueue-system --ignore-not-found=true --wait=false 2>/dev/null || true
   kubectl delete multikueuecluster remote-cluster -n kueue-system --ignore-not-found=true --wait=false 2>/dev/null || true
@@ -141,7 +141,7 @@ if kubectl config get-contexts k3d-manager >/dev/null 2>&1; then
   kubectl delete admissioncheck remote-multikueue-admission-check -n kueue-system --ignore-not-found=true --wait=false 2>/dev/null || true
   kubectl delete clusterqueue remote-cluster-queue -n kueue-system --ignore-not-found=true --wait=false 2>/dev/null || true
   kubectl delete localqueue remote-queue -n multikueue-demo --ignore-not-found=true --wait=false 2>/dev/null || true
-  
+
   print_status "Remote cluster configuration removed from manager cluster"
 else
   print_warning "Manager cluster not accessible - skipping manager cluster cleanup"

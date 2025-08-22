@@ -83,7 +83,7 @@ echo -e "${BLUE}📋 Checking prerequisites...${NC}"
 
 # Check if manager cluster exists
 if ! kubectl config get-contexts | grep -q "kind-$MANAGER_CLUSTER"; then
-    print_error "Manager cluster 'kind-$MANAGER_CLUSTER' not found. Please run './1a-setup-manager-cluster.sh' first."
+    print_error "Manager cluster 'kind-$MANAGER_CLUSTER' not found. Please run './1a-setup-manager.sh' first."
     exit 1
 fi
 
@@ -93,12 +93,12 @@ print_status "Manager cluster is available"
 if [ -f "$WORKER_KUBECONFIG_FILE" ]; then
     print_warning "Worker kubeconfig '$WORKER_KUBECONFIG_FILE' exists."
 else
-    print_error "Worker kubeconfig '$WORKER_KUBECONFIG_FILE' not found. Please run './create-worker-kubeconfig.sh' on your worker node first."
+    print_error "Worker kubeconfig '$WORKER_KUBECONFIG_FILE' not found. Please run './create-worker-kubeconfig.sh' on your remote worker first."
     exit 1
 fi
 
 # Step 1: Configure Manager Cluster
-echo -e "${BLUE}🏗️  Step 2: Configuring manager cluster...${NC}"
+echo -e "${BLUE}🏗️  Step 1: Configuring manager cluster...${NC}"
 
 # Switch to manager cluster context
 echo "Switching to manager cluster context"
@@ -115,7 +115,7 @@ print_status "Worker cluster secret created in manager cluster"
 
 # Apply manager cluster manifests
 echo "Applying manager cluster manifests..."
-run_cmd kubectl apply -f manager-cluster-manifests.yaml
+run_cmd kubectl apply -f manager-manifests.yaml
 
 # Verify manager cluster resources are created
 echo "Verifying manager cluster resources..."
@@ -132,7 +132,7 @@ echo "Resources verified successfully"
 print_status "Manager cluster configured successfully"
 
 # Step 2: Verify MultiKueue setup
-echo -e "${BLUE}✅ Step 3: Verifying MultiKueue setup...${NC}"
+echo -e "${BLUE}✅ Step 2: Verifying MultiKueue setup...${NC}"
 
 echo "Checking AdmissionCheck status..."
 run_cmd kubectl get admissioncheck multikueue-admission-check -n kueue-system -o yaml
