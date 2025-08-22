@@ -83,10 +83,6 @@ echo -e "${BLUE}🌐 Updating kubeconfig server address...${NC}"
 sed -i "s|server: https://.*:6443|server: https://${WORKER_IP}:6443|g" remote-kubeconfig.yaml
 print_status "Kubeconfig server address updated"
 
-cat remote-kubeconfig.yaml | xclip -sel clip
-echo -e "${BLUE}📋 Copied kubeconfig to clipboard!${NC}"
-
 echo ""
-echo "Next steps:"
-echo "- From your manager cluster, run './1a-setup-manager.sh'"
-echo "- Paste the content copied from remote-kubeconfig.yaml to the remote-kubeconfig.yaml in your manager cluster's directory."
+echo "Remote worker setup is done!"
+echo "Next steps: follow the instructions in the main README to configure the manager cluster."
