@@ -50,7 +50,7 @@ fi
 # Install required tools
 echo -e "${BLUE}🔧 Installing required tools...${NC}"
 
-tools=("kubectl" "kind" "helm" "yq")
+tools=("kubectl" "kind" "helm")
 for tool in "${tools[@]}"; do
     if ! command -v "$tool" &> /dev/null; then
         echo "Installing $tool..."
@@ -73,12 +73,12 @@ print_status "Existing kind cluster deleted"
 
 # Add the worker's external IP to the certSANs in the cluster config
 echo -e "${BLUE}✍️  Adding worker IP to certSANs...${NC}"
-yq -i '.nodes[0].kubeadmConfigPatches[0] |= sub("certSANs:\n", "certSANs:\n      - \"${WORKER_IP}\"\n")' remote-config.yaml
+sed -i "/certSANs:/a\\      - \"$WORKER_IP\"" remote-config.yaml
 print_status "Worker IP added to kind config"
 
 # Update "apiServerAddress:" field to $WORKER_IP
 echo -e "${BLUE}✍️  Updating apiServerAddress to $WORKER_IP...${NC}"
-yq -i '.networking.apiServerAddress = env(WORKER_IP)' remote-config.yaml
+sed -i "s/apiServerAddress: \"0.0.0.0\"/apiServerAddress: \"$WORKER_IP\"/" remote-config.yaml
 print_status "apiServerAddress updated"
 
 echo -e "${BLUE}☸️  Creating kind cluster...${NC}"
