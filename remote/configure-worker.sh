@@ -71,22 +71,26 @@ echo -e "${BLUE}🗑️  Deleting any existing kind cluster...${NC}"
 run_cmd kind delete cluster --name remote-cluster
 print_status "Existing kind cluster deleted"
 
-# Add the worker's external IP to the certSANs in the cluster config
-echo -e "${BLUE}✍️  Adding worker IP ($WORKER_IP) to certSANs...${NC}"
-
-# Check if WORKER_IP is already in certSANs to avoid duplicates
-if ! grep -q "- \"$WORKER_IP\"" remote-config.yaml; then
-    # Add WORKER_IP to certSANs list
-    sed -i "/certSANs:/a\\      - \"$WORKER_IP\"" remote-config.yaml
-    print_status "Added $WORKER_IP to certSANs in remote-config.yaml"
-else
-    print_status "$WORKER_IP already present in certSANs"
-fi
-
-# Update "apiServerAddress:" field to $WORKER_IP
-echo -e "${BLUE}✍️  Updating apiServerAddress to $WORKER_IP...${NC}"
-sed -i "s/apiServerAddress: \"0.0.0.0\"/apiServerAddress: \"$WORKER_IP\"/" remote-config.yaml
-print_status "apiServerAddress updated"
+# Use the worker's external IP to create the remote-config.yaml
+echo -e "${BLUE}✍️  Creating remote-config.yaml using external IP ($WORKER_IP)...${NC}"
+cat > remote-config.yaml <<EOF
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+networking:
+  apiServerAddress: "$WORKER_IP"
+  apiServerPort: 6443
+nodes:
+- role: control-plane
+  kubeadmConfigPatches:
+  - |
+    kind: ClusterConfiguration
+    apiServer:
+      certSANs:
+      - "$WORKER_IP"
+      - "localhost"
+      - "127.0.0.1"
+      - "0.0.0.0"
+EOF
 
 echo -e "${BLUE}☸️  Creating kind cluster...${NC}"
 run_cmd kind create cluster --name remote-cluster --config remote-config.yaml
