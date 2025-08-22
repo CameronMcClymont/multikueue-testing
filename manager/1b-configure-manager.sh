@@ -93,7 +93,7 @@ print_status "Manager cluster is available"
 if [ -f "$WORKER_KUBECONFIG_FILE" ]; then
     print_warning "Worker kubeconfig '$WORKER_KUBECONFIG_FILE' exists."
 else
-    print_error "Worker kubeconfig '$WORKER_KUBECONFIG_FILE' not found. Please run './create-worker-kubeconfig.sh' on your remote worker first."
+    print_error "Worker kubeconfig '$WORKER_KUBECONFIG_FILE' not found. Please ensure you have copied over the kubeconfig file after running 'remote/configure-worker.sh' on your remote worker."
     exit 1
 fi
 
